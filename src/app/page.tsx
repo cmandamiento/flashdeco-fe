@@ -19,6 +19,7 @@ import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
 import CategoryIcon from "@mui/icons-material/Category";
 import ListIcon from "@mui/icons-material/List";
 import LogoutIcon from "@mui/icons-material/Logout";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -81,7 +82,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE_URL}/orders`)
+    fetch(`${API_BASE_URL}/orders`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (!cancelled) setOrders(Array.isArray(data) ? data : []);
@@ -109,7 +110,10 @@ export default function HomePage() {
 
   const handleAction = async (action: (typeof actions)[0]) => {
     if (action.isLogout) {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
       router.push("/login");
       router.refresh();
     } else {
@@ -119,9 +123,18 @@ export default function HomePage() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Bienvenido a DecorApp
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Bienvenido a
+        </Typography>
+        <Image
+          src="/logo-flash.png"
+          alt="FlashDeco"
+          width={180}
+          height={72}
+          priority
+        />
+      </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         Selecciona una acción para continuar
       </Typography>

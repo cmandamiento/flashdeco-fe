@@ -122,7 +122,7 @@ export function OrderForm({
   const referenceRequired = !isEdit || !hasExistingReference;
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/categories`)
+    fetch(`${API_BASE_URL}/categories`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]));
@@ -146,7 +146,7 @@ export function OrderForm({
       return;
     }
     setLoadingEvents(true);
-    fetch(`${API_BASE_URL}/orders?date=${date}`)
+    fetch(`${API_BASE_URL}/orders?date=${date}`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
@@ -210,6 +210,7 @@ export function OrderForm({
         formData.append("file", referenceFile);
         const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
           method: "POST",
+          credentials: "include",
           body: formData,
         });
         if (!uploadRes.ok) {
@@ -226,6 +227,7 @@ export function OrderForm({
         const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             clientName,
             phone: phone || null,
@@ -249,6 +251,7 @@ export function OrderForm({
         const response = await fetch(`${API_BASE_URL}/orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             clientName,
             phone: phone || null,

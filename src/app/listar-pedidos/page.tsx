@@ -93,7 +93,9 @@ export default function ListarPedidosPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/orders`);
+      const res = await fetch(`${API_BASE_URL}/orders`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Error al cargar pedidos");
       const data = await res.json();
       setOrders(data);
@@ -140,6 +142,7 @@ export default function ListarPedidosPage() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ status: "CANCELLED" }),
         }
       );

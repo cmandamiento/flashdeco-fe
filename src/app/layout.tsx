@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthGuard } from "@/components/AuthGuard";
 import ThemeRegistry from "./ThemeRegistry";
 import "./globals.css";
 
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DecorApp",
+  title: "FlashDeco",
   description: "Aplicación de pedidos",
 };
 
@@ -26,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ThemeRegistry>{children}</ThemeRegistry>
+        <ThemeRegistry>
+          <AuthGuard>{children}</AuthGuard>
+        </ThemeRegistry>
       </body>
     </html>
   );

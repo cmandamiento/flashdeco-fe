@@ -41,7 +41,9 @@ export default function VerPedidoPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/orders/${id}`);
+        const res = await fetch(`${API_BASE_URL}/orders/${id}`, {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("Pedido no encontrado");
         const data = await res.json();
         if (!cancelled) setOrder(data);

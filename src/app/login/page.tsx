@@ -8,8 +8,10 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,20 +27,22 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Error al iniciar sesión");
+        setError(data.detail || data.error || "Error al iniciar sesión");
         return;
       }
 
-      router.push("/");
+      const from = searchParams.get("from") || "/";
+      router.push(from);
       router.refresh();
     } catch {
       setError("Error de conexión. Intenta de nuevo.");
@@ -59,9 +64,15 @@ export default function LoginPage() {
     >
       <Card sx={{ maxWidth: 400, width: "100%" }}>
         <CardContent sx={{ p: 3 }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            DecorApp
-          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+            <Image
+              src="/logo-flash.png"
+              alt="FlashDeco"
+              width={300}
+              height={200}
+              priority
+            />
+          </Box>
           <Typography
             variant="body2"
             color="text.secondary"

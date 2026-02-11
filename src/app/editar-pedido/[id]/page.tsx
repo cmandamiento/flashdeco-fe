@@ -54,7 +54,9 @@ export default function EditarPedidoPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/orders/${orderId}`);
+        const res = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("Pedido no encontrado");
         const data = await res.json();
         if (!cancelled) setOrder(data);

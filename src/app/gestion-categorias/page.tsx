@@ -46,7 +46,9 @@ export default function GestionCategoriasPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/categories`);
+      const res = await fetch(`${API_BASE_URL}/categories`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Error al cargar categorías");
       const data = await res.json();
       setCategories(Array.isArray(data) ? data : []);
@@ -80,6 +82,7 @@ export default function GestionCategoriasPage() {
       const res = await fetch(`${API_BASE_URL}/categories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: nombre.trim(),
           description: descripcion.trim() || null,
