@@ -1,66 +1,236 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
 
-export default function Home() {
+import {
+  Box,
+  Card,
+  CardActionArea,
+  CardContent,
+  FormControl,
+  Grid,
+  InputLabel,
+  List,
+  ListItemButton,
+  ListItemText,
+  MenuItem,
+  Select,
+  Typography,
+} from "@mui/material";
+import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
+import CategoryIcon from "@mui/icons-material/Category";
+import ListIcon from "@mui/icons-material/List";
+import LogoutIcon from "@mui/icons-material/Logout";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+type Order = {
+  id: number;
+  clientName: string;
+  date: string;
+  status: string;
+  category: { id: number; name: string; description: string | null } | null;
+};
+
+const DAYS_OPTIONS = [
+  { value: 7, label: "7 días" },
+  { value: 15, label: "15 días" },
+  { value: 30, label: "30 días" },
+] as const;
+
+const actions = [
+  {
+    title: "Crear pedido",
+    description: "Registra un nuevo pedido en el sistema",
+    icon: <AddShoppingCartIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+    href: "/crear-pedido",
+  },
+  {
+    title: "Listar pedidos",
+    description: "Consulta el listado de pedidos existentes",
+    icon: <ListIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+    href: "/listar-pedidos",
+  },
+  {
+    title: "Gestión de categorías",
+    description: "Administra las categorías del sistema",
+    icon: <CategoryIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+    href: "/gestion-categorias",
+  },
+  {
+    title: "Cerrar sesión",
+    description: "Salir de la aplicación",
+    icon: <LogoutIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+    href: "/logout",
+    isLogout: true,
+  },
+];
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+export default function HomePage() {
+  const router = useRouter();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [daysFilter, setDaysFilter] = useState<7 | 15 | 30>(7);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/orders`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled) setOrders(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setOrders([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + daysFilter);
+
+  const upcomingOrders = orders
+    .filter((order) => {
+      const orderDate = new Date(order.date);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate >= today && orderDate <= endDate;
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const handleAction = async (action: (typeof actions)[0]) => {
+    if (action.isLogout) {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } else {
+      router.push(action.href);
+    }
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+    <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Bienvenido a DecorApp
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+        Selecciona una acción para continuar
+      </Typography>
+
+      <Grid container spacing={3}>
+        {actions.map((action) => (
+          <Grid item xs={12} sm={6} md={3} key={action.title}>
+            <Card
+              sx={{
+                height: "100%",
+                transition: "transform 0.2s, box-shadow 0.2s",
+                "&:hover": {
+                  transform: "translateY(-4px)",
+                  boxShadow: 4,
+                },
+              }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+              <CardActionArea
+                onClick={() => handleAction(action)}
+                sx={{ height: "100%", p: 2 }}
+              >
+                <CardContent>
+                  <Box sx={{ mb: 2 }}>{action.icon}</Box>
+                  <Typography variant="h6" component="h2" gutterBottom>
+                    {action.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {action.description}
+                  </Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Box sx={{ mt: 5 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            flexWrap: "wrap",
+            mb: 2,
+          }}
+        >
+          <Typography variant="h5" component="h2">
+            Próximos eventos
+          </Typography>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="days-filter-label">En los próximos</InputLabel>
+            <Select
+              labelId="days-filter-label"
+              value={daysFilter}
+              label="En los próximos"
+              onChange={(e) =>
+                setDaysFilter(Number(e.target.value) as 7 | 15 | 30)
+              }
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              {DAYS_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+        <Card>
+          {upcomingOrders.length === 0 ? (
+            <CardContent>
+              <Typography color="text.secondary">
+                No hay eventos en los próximos {daysFilter} días
+              </Typography>
+            </CardContent>
+          ) : (
+            <List disablePadding>
+              {upcomingOrders.map((order) => (
+                <ListItemButton
+                  key={order.id}
+                  component={Link}
+                  href={`/pedidos/${order.id}`}
+                >
+                  <ListItemText
+                    primary={order.clientName}
+                    secondary={
+                      <>
+                        {formatDate(order.date)}
+                        {order.category && (
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ ml: 1 }}
+                          >
+                            — {order.category.name}
+                          </Typography>
+                        )}
+                      </>
+                    }
+                    primaryTypographyProps={{ fontWeight: 500 }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </Card>
+      </Box>
+    </Box>
   );
 }
