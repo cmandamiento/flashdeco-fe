@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FlashDeco",
   description: "Aplicación de pedidos",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/logo-app.png",
+    apple: "/logo-app.png",
+  },
 };
 
 export default function RootLayout({
