@@ -6,9 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { OrderForm, type OrderFormInitialValues } from "@/components/OrderForm";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+import { API_BASE_URL } from "@/lib/config";
 
 type Order = {
   id: number;

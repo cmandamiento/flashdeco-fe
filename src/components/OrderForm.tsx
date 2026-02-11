@@ -25,9 +25,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+import { API_BASE_URL } from "@/lib/config";
 
 export type Category = {
   id: number;
