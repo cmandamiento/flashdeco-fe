@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import ThemeRegistry from "./ThemeRegistry";
 import "./globals.css";
@@ -33,7 +34,9 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ThemeRegistry>
-          <AuthGuard>{children}</AuthGuard>
+          <Suspense fallback={null}>
+            <AuthGuard>{children}</AuthGuard>
+          </Suspense>
         </ThemeRegistry>
       </body>
     </html>
