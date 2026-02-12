@@ -41,17 +41,26 @@ export default function UsersPage() {
 
     setLoading(true);
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const res = await fetch(`${API_BASE_URL}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ username, email, password }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeoutId);
+
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.detail || "Error al registrar usuario");
+        setError(
+          (typeof data.detail === "string" ? data.detail : data.detail?.[0]?.msg) ||
+            "Error al registrar usuario"
+        );
         return;
       }
 
@@ -60,8 +69,16 @@ export default function UsersPage() {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
-    } catch {
-      setError("Error de conexión. Intenta de nuevo.");
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.name === "AbortError") {
+          setError("La solicitud tardó demasiado. Verifica que el backend esté corriendo.");
+        } else {
+          setError("Error de conexión. Intenta de nuevo.");
+        }
+      } else {
+        setError("Error de conexión. Intenta de nuevo.");
+      }
     } finally {
       setLoading(false);
     }
@@ -153,13 +170,18 @@ export default function UsersPage() {
               variant="contained"
               fullWidth
               size="large"
-              disabled={loading}
+              // disabled={loading}
             >
               {loading ? "Registrando..." : "Registrar"}
             </Button>
           </Box>
 
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            align="center"
+            sx={{ mt: 2 }}
+          >
             ¿Ya tienes cuenta?{" "}
             <Link href="/login" style={{ color: "inherit" }}>
               Iniciar sesión

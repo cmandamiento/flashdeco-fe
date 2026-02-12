@@ -1,6 +1,8 @@
 "use client";
 
+import { Suspense } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -10,6 +12,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -24,6 +27,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CancelIcon from "@mui/icons-material/Cancel";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -79,7 +83,9 @@ function getComparator(orderBy: OrderBy): (a: Order, b: Order) => number {
   };
 }
 
-export default function ListarPedidosPage() {
+function ListarPedidosContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -88,6 +94,14 @@ export default function ListarPedidosPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [successSnackbarOpen, setSuccessSnackbarOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("created") === "true") {
+      setSuccessSnackbarOpen(true);
+      router.replace("/listar-pedidos");
+    }
+  }, [searchParams, router]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -158,7 +172,10 @@ export default function ListarPedidosPage() {
 
   const formatDate = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString("es-PE", {
+      // Parsear fecha YYYY-MM-DD como fecha local (no UTC)
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString("es-PE", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -326,6 +343,30 @@ export default function ListarPedidosPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={successSnackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSuccessSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSuccessSnackbarOpen(false)}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          Pedido creado correctamente
+        </Alert>
+      </Snackbar>
     </Box>
+  );
+}
+
+export default function ListarPedidosPage() {
+  return (
+    <Suspense fallback={null}>
+      <ListarPedidosContent />
+    </Suspense>
   );
 }

@@ -2,11 +2,9 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { API_BASE_URL } from "@/lib/config";
+import { API_BASE_URL, PUBLIC_PATHS } from "@/lib/config";
 
 const LOGIN_PATH = "/login";
-const USERS_PATH = "/users";
-const PUBLIC_PATHS = [LOGIN_PATH, USERS_PATH];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();

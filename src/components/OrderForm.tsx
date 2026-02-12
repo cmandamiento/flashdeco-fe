@@ -10,9 +10,14 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Drawer,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -21,10 +26,12 @@ import {
   Typography,
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
+import AddIcon from "@mui/icons-material/Add";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
 import Link from "next/link";
-import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useState, useMemo, useEffect } from "react";
 import { API_BASE_URL } from "@/lib/config";
 
 export type Category = {
@@ -116,17 +123,27 @@ export function OrderForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryNombre, setCategoryNombre] = useState("");
+  const [categoryDescripcion, setCategoryDescripcion] = useState("");
+  const [categorySaving, setCategorySaving] = useState(false);
+  const router = useRouter();
+
+  const fetchCategories = useCallback(async () => {
+    const res = await fetch(`${API_BASE_URL}/categories`, {
+      credentials: "include",
+    });
+    const data = res.ok ? await res.json() : [];
+    setCategories(Array.isArray(data) ? data : []);
+  }, []);
 
   const isEdit = mode === "edit";
   const hasExistingReference = Boolean(merged.referenceUrl);
   const referenceRequired = !isEdit || !hasExistingReference;
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/categories`, { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setCategories(Array.isArray(data) ? data : []))
-      .catch(() => setCategories([]));
-  }, []);
+    fetchCategories();
+  }, [fetchCategories]);
 
   useEffect(() => {
     if (referenceFile) {
@@ -273,8 +290,12 @@ export function OrderForm({
         }
       }
 
-      setSuccess(true);
-      onSuccess?.();
+      if (mode === "create") {
+        router.push("/listar-pedidos?created=true");
+      } else {
+        setSuccess(true);
+        onSuccess?.();
+      }
     } catch {
       setError("Error de conexión con el backend.");
     } finally {
@@ -291,7 +312,7 @@ export function OrderForm({
               {error}
             </Alert>
           )}
-          {success && (
+          {success && mode === "edit" && (
             <Alert severity="success" sx={{ mb: 2 }}>
               {successMessage}
             </Alert>
@@ -386,25 +407,114 @@ export function OrderForm({
             </Grid>
 
             <Grid size={{ xs: 12 }}>
-              <FormControl fullWidth required>
-                <InputLabel id="category-label">Categoría</InputLabel>
-                <Select
-                  labelId="category-label"
-                  label="Categoría"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    <em>Seleccione una categoría</em>
-                  </MenuItem>
-                  {categories.map((cat) => (
-                    <MenuItem key={cat.id} value={String(cat.id)}>
-                      {cat.name}
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                <FormControl fullWidth required sx={{ flex: 1 }}>
+                  <InputLabel id="category-label">Categoría</InputLabel>
+                  <Select
+                    labelId="category-label"
+                    label="Categoría"
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      <em>Seleccione una categoría</em>
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    {categories.map((cat) => (
+                      <MenuItem key={cat.id} value={String(cat.id)}>
+                        {cat.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <IconButton
+                  color="primary"
+                  onClick={() => {
+                    setCategoryNombre("");
+                    setCategoryDescripcion("");
+                    setCategoryModalOpen(true);
+                  }}
+                  title="Agregar categoría"
+                  sx={{ mt: 1 }}
+                >
+                  <AddIcon />
+                </IconButton>
+              </Box>
+
+              <Dialog
+                open={categoryModalOpen}
+                onClose={() => !categorySaving && setCategoryModalOpen(false)}
+                maxWidth="sm"
+                fullWidth
+              >
+                <DialogTitle>Agregar categoría</DialogTitle>
+                <DialogContent>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                      pt: 1,
+                    }}
+                  >
+                    <TextField
+                      label="Nombre"
+                      value={categoryNombre}
+                      onChange={(e) => setCategoryNombre(e.target.value)}
+                      required
+                      fullWidth
+                      autoFocus
+                    />
+                    <TextField
+                      label="Descripción"
+                      value={categoryDescripcion}
+                      onChange={(e) => setCategoryDescripcion(e.target.value)}
+                      multiline
+                      rows={3}
+                      fullWidth
+                    />
+                  </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                  <Button
+                    onClick={() => setCategoryModalOpen(false)}
+                    disabled={categorySaving}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!categoryNombre.trim()) return;
+                      setCategorySaving(true);
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/categories`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            name: categoryNombre.trim(),
+                            description:
+                              categoryDescripcion.trim() || null,
+                          }),
+                        });
+                        if (!res.ok) throw new Error("No se pudo guardar");
+                        const newCat = await res.json();
+                        await fetchCategories();
+                        setCategoryId(String(newCat.id));
+                        setCategoryModalOpen(false);
+                      } catch {
+                        setError("No se pudo crear la categoría");
+                      } finally {
+                        setCategorySaving(false);
+                      }
+                    }}
+                    variant="contained"
+                    disabled={categorySaving || !categoryNombre.trim()}
+                  >
+                    {categorySaving ? "Guardando..." : "Guardar"}
+                  </Button>
+                </DialogActions>
+              </Dialog>
             </Grid>
 
             <Grid size={{ xs: 12 }}>
