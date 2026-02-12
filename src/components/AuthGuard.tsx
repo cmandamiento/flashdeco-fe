@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL, PUBLIC_PATHS } from "@/lib/config";
+import { getAuthHeaders, getToken } from "@/lib/auth";
 
 const LOGIN_PATH = "/login";
 
@@ -13,33 +14,58 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    if (PUBLIC_PATHS.includes(pathname)) {
+      const token = getToken();
+      if (token) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 5000);
+        fetch(`${API_BASE_URL}/auth/me`, {
+          headers: getAuthHeaders(),
+          signal: ctrl.signal,
+        })
+          .then((res) => {
+            if (res.ok) {
+              const from = searchParams.get("from") || "/";
+              router.replace(from);
+            }
+          })
+          .finally(() => {
+            clearTimeout(t);
+            setChecked(true);
+          });
+      } else {
+        setChecked(true);
+      }
+      return;
+    }
+
+    const token = getToken();
+    if (!token) {
+      const loginUrl = new URL(LOGIN_PATH, window.location.origin);
+      loginUrl.searchParams.set("from", pathname);
+      router.replace(loginUrl.toString());
+      setChecked(true);
+      return;
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     fetch(`${API_BASE_URL}/auth/me`, {
-      credentials: "include",
+      headers: getAuthHeaders(),
       signal: controller.signal,
     })
       .then((res) => {
-        if (PUBLIC_PATHS.includes(pathname)) {
-          if (res.ok && pathname === LOGIN_PATH) {
-            const from = searchParams.get("from") || "/";
-            router.replace(from);
-          }
-        } else {
-          if (!res.ok) {
-            const loginUrl = new URL(LOGIN_PATH, window.location.origin);
-            loginUrl.searchParams.set("from", pathname);
-            router.replace(loginUrl.toString());
-          }
-        }
-      })
-      .catch(() => {
-        if (!PUBLIC_PATHS.includes(pathname)) {
+        if (!res.ok) {
           const loginUrl = new URL(LOGIN_PATH, window.location.origin);
           loginUrl.searchParams.set("from", pathname);
           router.replace(loginUrl.toString());
         }
+      })
+      .catch(() => {
+        const loginUrl = new URL(LOGIN_PATH, window.location.origin);
+        loginUrl.searchParams.set("from", pathname);
+        router.replace(loginUrl.toString());
       })
       .finally(() => {
         clearTimeout(timeout);

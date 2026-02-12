@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders, removeToken } from "@/lib/auth";
 import { NAV_ACTIONS, NAV_ICONS_LARGE, type NavAction } from "@/lib/navActions";
 
 type Order = {
@@ -53,7 +54,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE_URL}/orders`, { credentials: "include" })
+    fetch(`${API_BASE_URL}/orders`, { headers: getAuthHeaders(), credentials: "omit" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (!cancelled) setOrders(Array.isArray(data) ? data : []);
@@ -89,10 +90,7 @@ export default function HomePage() {
 
   const handleAction = async (action: NavAction) => {
     if (action.isLogout) {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      removeToken();
       router.push("/login");
       router.refresh();
     } else {

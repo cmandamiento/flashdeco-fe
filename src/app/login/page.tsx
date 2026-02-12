@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { setToken } from "@/lib/auth";
 
 function LoginForm() {
   const [username, setUsername] = useState("");
@@ -31,7 +32,6 @@ function LoginForm() {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ username, password }),
       });
 
@@ -41,6 +41,13 @@ function LoginForm() {
         setError(data.detail || data.error || "Error al iniciar sesión");
         return;
       }
+
+      const token = data.access_token;
+      if (!token) {
+        setError("Error en la respuesta del servidor");
+        return;
+      }
+      setToken(token);
 
       const from = searchParams.get("from") || "/";
       router.push(from);

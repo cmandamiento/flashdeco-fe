@@ -1,4 +1,4 @@
-/** URL base del backend. Las llamadas usan credentials: 'include' para enviar la cookie. */
+/** URL base del backend. Las llamadas autenticadas usan Authorization: Bearer <token>. */
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 

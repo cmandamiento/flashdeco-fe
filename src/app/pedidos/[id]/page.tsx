@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
 
 type Order = {
   id: number;
@@ -51,7 +52,8 @@ export default function VerPedidoPage() {
     (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/orders/${id}`, {
-          credentials: "include",
+          headers: getAuthHeaders(),
+          credentials: "omit",
         });
         if (!res.ok) throw new Error("Pedido no encontrado");
         const data = await res.json();

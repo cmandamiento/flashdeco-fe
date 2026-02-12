@@ -16,7 +16,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { API_BASE_URL } from "@/lib/config";
+import { removeToken } from "@/lib/auth";
 import { NAV_ACTIONS, NAV_ICONS, type NavAction } from "@/lib/navActions";
 
 export function AppBarNav() {
@@ -27,10 +27,7 @@ export function AppBarNav() {
   const handleAction = async (action: NavAction) => {
     setDrawerOpen(false);
     if (action.isLogout) {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      removeToken();
       router.push("/login");
       router.refresh();
     } else {

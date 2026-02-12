@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { OrderForm, type OrderFormInitialValues } from "@/components/OrderForm";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
 
 type Order = {
   id: number;
@@ -55,7 +56,8 @@ export default function EditarPedidoPage() {
     (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
-          credentials: "include",
+          headers: getAuthHeaders(),
+          credentials: "omit",
         });
         if (!res.ok) throw new Error("Pedido no encontrado");
         const data = await res.json();

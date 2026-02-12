@@ -25,6 +25,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
 
 type Category = {
   id: number;
@@ -47,7 +48,8 @@ export default function GestionCategoriasPage() {
     setError("");
     try {
       const res = await fetch(`${API_BASE_URL}/categories`, {
-        credentials: "include",
+        headers: getAuthHeaders(),
+        credentials: "omit",
       });
       if (!res.ok) throw new Error("Error al cargar categorías");
       const data = await res.json();
@@ -81,8 +83,11 @@ export default function GestionCategoriasPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/categories`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "omit",
         body: JSON.stringify({
           name: nombre.trim(),
           description: descripcion.trim() || null,

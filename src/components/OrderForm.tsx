@@ -33,6 +33,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useMemo, useEffect } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
 
 export type Category = {
   id: number;
@@ -131,7 +132,8 @@ export function OrderForm({
 
   const fetchCategories = useCallback(async () => {
     const res = await fetch(`${API_BASE_URL}/categories`, {
-      credentials: "include",
+      headers: getAuthHeaders(),
+      credentials: "omit",
     });
     const data = res.ok ? await res.json() : [];
     setCategories(Array.isArray(data) ? data : []);
@@ -163,7 +165,10 @@ export function OrderForm({
       return;
     }
     setLoadingEvents(true);
-    fetch(`${API_BASE_URL}/orders?date=${date}`, { credentials: "include" })
+    fetch(`${API_BASE_URL}/orders?date=${date}`, {
+      headers: getAuthHeaders(),
+      credentials: "omit",
+    })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
@@ -227,7 +232,8 @@ export function OrderForm({
         formData.append("file", referenceFile);
         const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
           method: "POST",
-          credentials: "include",
+          headers: getAuthHeaders(),
+          credentials: "omit",
           body: formData,
         });
         if (!uploadRes.ok) {
@@ -243,8 +249,8 @@ export function OrderForm({
       if (isEdit && orderId != null) {
         const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          credentials: "omit",
           body: JSON.stringify({
             clientName,
             phone: phone || null,
@@ -267,8 +273,8 @@ export function OrderForm({
       } else {
         const response = await fetch(`${API_BASE_URL}/orders`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          credentials: "omit",
           body: JSON.stringify({
             clientName,
             phone: phone || null,
@@ -489,8 +495,11 @@ export function OrderForm({
                       try {
                         const res = await fetch(`${API_BASE_URL}/categories`, {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          credentials: "include",
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...getAuthHeaders(),
+                          },
+                          credentials: "omit",
                           body: JSON.stringify({
                             name: categoryNombre.trim(),
                             description:

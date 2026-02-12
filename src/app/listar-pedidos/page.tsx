@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
 
 type Order = {
   id: number;
@@ -108,7 +109,8 @@ function ListarPedidosContent() {
     setError("");
     try {
       const res = await fetch(`${API_BASE_URL}/orders`, {
-        credentials: "include",
+        headers: getAuthHeaders(),
+        credentials: "omit",
       });
       if (!res.ok) throw new Error("Error al cargar pedidos");
       const data = await res.json();
@@ -155,8 +157,8 @@ function ListarPedidosContent() {
         `${API_BASE_URL}/orders/${orderToCancel.id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          credentials: "omit",
           body: JSON.stringify({ status: "CANCELLED" }),
         }
       );
