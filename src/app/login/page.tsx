@@ -9,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
@@ -70,6 +71,7 @@ function LoginForm() {
               alt="FlashDeco"
               width={300}
               height={200}
+              style={{ width: "100%", height: "auto" }}
               priority
             />
           </Box>
@@ -119,6 +121,18 @@ function LoginForm() {
             >
               {loading ? "Entrando..." : "Iniciar sesión"}
             </Button>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              align="center"
+              sx={{ mt: 2 }}
+            >
+              ¿No tienes cuenta?{" "}
+              <Link href="/users" style={{ color: "inherit" }}>
+                Registrarse
+              </Link>
+            </Typography>
           </Box>
         </CardContent>
       </Card>

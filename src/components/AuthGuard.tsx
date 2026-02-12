@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 
 const LOGIN_PATH = "/login";
+const USERS_PATH = "/users";
+const PUBLIC_PATHS = [LOGIN_PATH, USERS_PATH];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -21,8 +23,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       signal: controller.signal,
     })
       .then((res) => {
-        if (pathname === LOGIN_PATH) {
-          if (res.ok) {
+        if (PUBLIC_PATHS.includes(pathname)) {
+          if (res.ok && pathname === LOGIN_PATH) {
             const from = searchParams.get("from") || "/";
             router.replace(from);
           }
@@ -35,7 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(() => {
-        if (pathname !== LOGIN_PATH) {
+        if (!PUBLIC_PATHS.includes(pathname)) {
           const loginUrl = new URL(LOGIN_PATH, window.location.origin);
           loginUrl.searchParams.set("from", pathname);
           router.replace(loginUrl.toString());
@@ -47,8 +49,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       });
   }, [pathname, router, searchParams]);
 
-  // En /login mostramos el formulario de inmediato (no esperamos el fetch)
-  if (pathname === LOGIN_PATH) {
+  // Rutas públicas: mostramos el contenido de inmediato (no esperamos el fetch)
+  if (PUBLIC_PATHS.includes(pathname)) {
     return <>{children}</>;
   }
 
