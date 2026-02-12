@@ -14,7 +14,7 @@ import { Suspense, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 
 function LoginForm() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,7 @@ function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
@@ -85,12 +85,12 @@ function LoginForm() {
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
               fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              label="Usuario"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               sx={{ mb: 2 }}
-              autoComplete="email"
+              autoComplete="username"
               required
             />
             <TextField
