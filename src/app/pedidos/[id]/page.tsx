@@ -242,7 +242,7 @@ export default function VerPedidoPage() {
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <CategoryIcon color="primary" />
                   <Typography variant="subtitle2" color="text.secondary">
-                    Categoría
+                    Temática
                   </Typography>
                 </Box>
                 <Typography variant="h6" fontWeight="medium">

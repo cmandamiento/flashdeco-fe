@@ -51,7 +51,7 @@ export default function GestionCategoriasPage() {
         headers: getAuthHeaders(),
         credentials: "omit",
       });
-      if (!res.ok) throw new Error("Error al cargar categorías");
+      if (!res.ok) throw new Error("Error al cargar temáticas");
       const data = await res.json();
       setCategories(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -93,7 +93,7 @@ export default function GestionCategoriasPage() {
           description: descripcion.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error("No se pudo guardar la categoría");
+      if (!res.ok) throw new Error("No se pudo guardar la temática");
       setSnackbarOpen(true);
       closeModal();
       await fetchCategories();
@@ -126,14 +126,10 @@ export default function GestionCategoriasPage() {
         }}
       >
         <Typography variant="h4" component="h1">
-          Gestión de categorías
+          Gestión de temáticas
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={openModal}
-        >
-          Agregar categoría
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openModal}>
+          Agregar temática
         </Button>
       </Box>
 
@@ -146,7 +142,7 @@ export default function GestionCategoriasPage() {
           )}
           {loading ? (
             <Typography color="text.secondary" sx={{ p: 3 }}>
-              Cargando categorías...
+              Cargando temáticas...
             </Typography>
           ) : (
             <TableContainer>
@@ -162,7 +158,7 @@ export default function GestionCategoriasPage() {
                     <TableRow>
                       <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
-                          No hay categorías registradas
+                          No hay temáticas registradas
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -182,7 +178,7 @@ export default function GestionCategoriasPage() {
       </Card>
 
       <Dialog open={modalOpen} onClose={closeModal} maxWidth="sm" fullWidth>
-        <DialogTitle>Agregar categoría</DialogTitle>
+        <DialogTitle>Agregar temática</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
             <TextField
@@ -228,7 +224,7 @@ export default function GestionCategoriasPage() {
           severity="success"
           variant="filled"
         >
-          Categoría guardada correctamente
+          Temática guardada correctamente
         </Alert>
       </Snackbar>
     </Box>

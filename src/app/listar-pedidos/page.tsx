@@ -12,6 +12,10 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Snackbar,
   Table,
   TableBody,
@@ -32,6 +36,12 @@ import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 
+type Category = {
+  id: number;
+  name: string;
+  description: string | null;
+};
+
 type Order = {
   id: number;
   clientName: string;
@@ -45,7 +55,7 @@ type Order = {
   status: "PENDING" | "COMPLETE" | "CANCELLED";
   reference: string | null;
   result: string | null;
-  category: { id: number; name: string; description: string | null } | null;
+  category: Category | null;
 };
 
 type OrderBy = "clientName" | "date" | "status" | "category";
@@ -96,6 +106,11 @@ function ListarPedidosContent() {
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [successSnackbarOpen, setSuccessSnackbarOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<
+    "PENDING" | "COMPLETE" | "CANCELLED" | "all"
+  >("PENDING");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
 
   useEffect(() => {
     if (searchParams.get("created") === "true") {
@@ -122,9 +137,28 @@ function ListarPedidosContent() {
     }
   }, []);
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/categories`, {
+        headers: getAuthHeaders(),
+        credentials: "omit",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // Silently ignore, categories filter will be empty
+    }
+  }, []);
+
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleSort = (field: OrderBy) => {
     const isAsc = orderBy === field && orderDir === "asc";
@@ -132,7 +166,13 @@ function ListarPedidosContent() {
     setOrderBy(field);
   };
 
-  const sortedOrders = [...orders].sort((a, b) => {
+  const filteredOrders = orders.filter((o) => {
+    if (statusFilter !== "all" && o.status !== statusFilter) return false;
+    if (categoryFilter !== "all" && (o.category?.id ?? null) !== categoryFilter)
+      return false;
+    return true;
+  });
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
     const cmp = getComparator(orderBy)(a, b);
     return orderDir === "asc" ? cmp : -cmp;
   });
@@ -153,15 +193,12 @@ function ListarPedidosContent() {
     if (!orderToCancel) return;
     setCancelling(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/orders/${orderToCancel.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-          credentials: "omit",
-          body: JSON.stringify({ status: "CANCELLED" }),
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/orders/${orderToCancel.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "omit",
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
       if (!res.ok) throw new Error("No se pudo cancelar el pedido");
       await fetchOrders();
       closeCancelModal();
@@ -217,126 +254,192 @@ function ListarPedidosContent() {
               Cargando pedidos...
             </Typography>
           ) : (
-            <TableContainer>
-              <Table size="medium">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <TableSortLabel
-                        active={orderBy === "clientName"}
-                        direction={orderBy === "clientName" ? orderDir : "asc"}
-                        onClick={() => handleSort("clientName")}
-                      >
-                        Cliente
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>
-                      <TableSortLabel
-                        active={orderBy === "date"}
-                        direction={orderBy === "date" ? orderDir : "asc"}
-                        onClick={() => handleSort("date")}
-                      >
-                        Fecha
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>
-                      <TableSortLabel
-                        active={orderBy === "status"}
-                        direction={orderBy === "status" ? orderDir : "asc"}
-                        onClick={() => handleSort("status")}
-                      >
-                        Estado
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>
-                      <TableSortLabel
-                        active={orderBy === "category"}
-                        direction={orderBy === "category" ? orderDir : "asc"}
-                        onClick={() => handleSort("category")}
-                      >
-                        Categoría
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell align="right">Acción</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedOrders.length === 0 ? (
+            <>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 2,
+                  p: 2,
+                  borderBottom: 1,
+                  borderColor: "divider",
+                }}
+              >
+                <Typography component="span" variant="body2">
+                  Listar:
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 160 }}>
+                  <InputLabel id="status-filter-label">Estado</InputLabel>
+                  <Select
+                    labelId="status-filter-label"
+                    value={statusFilter}
+                    label="Estado"
+                    onChange={(e) =>
+                      setStatusFilter(
+                        e.target.value as
+                          | "PENDING"
+                          | "COMPLETE"
+                          | "CANCELLED"
+                          | "all",
+                      )
+                    }
+                  >
+                    <MenuItem value="PENDING">Pendientes</MenuItem>
+                    <MenuItem value="COMPLETE">Completados</MenuItem>
+                    <MenuItem value="CANCELLED">Cancelados</MenuItem>
+                    <MenuItem value="all">Todos</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography component="span" variant="body2">
+                  Temática:
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 160 }}>
+                  <InputLabel id="category-filter-label">Temática</InputLabel>
+                  <Select
+                    labelId="category-filter-label"
+                    value={categoryFilter}
+                    label="Temática"
+                    onChange={(e) =>
+                      setCategoryFilter(
+                        e.target.value === "all"
+                          ? "all"
+                          : Number(e.target.value),
+                      )
+                    }
+                  >
+                    <MenuItem value="all">Todas</MenuItem>
+                    {categories.map((cat) => (
+                      <MenuItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <TableContainer>
+                <Table size="medium">
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
-                          No hay pedidos registrados
-                        </Typography>
+                      <TableCell>
+                        <TableSortLabel
+                          active={orderBy === "clientName"}
+                          direction={
+                            orderBy === "clientName" ? orderDir : "asc"
+                          }
+                          onClick={() => handleSort("clientName")}
+                        >
+                          Cliente
+                        </TableSortLabel>
                       </TableCell>
+                      <TableCell>
+                        <TableSortLabel
+                          active={orderBy === "date"}
+                          direction={orderBy === "date" ? orderDir : "asc"}
+                          onClick={() => handleSort("date")}
+                        >
+                          Fecha
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell>
+                        <TableSortLabel
+                          active={orderBy === "status"}
+                          direction={orderBy === "status" ? orderDir : "asc"}
+                          onClick={() => handleSort("status")}
+                        >
+                          Estado
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell>
+                        <TableSortLabel
+                          active={orderBy === "category"}
+                          direction={orderBy === "category" ? orderDir : "asc"}
+                          onClick={() => handleSort("category")}
+                        >
+                          Temática
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="right">Acción</TableCell>
                     </TableRow>
-                  ) : (
-                    sortedOrders.map((row) => (
-                      <TableRow key={row.id} hover>
-                        <TableCell>{row.clientName}</TableCell>
-                        <TableCell>{formatDate(row.date)}</TableCell>
-                        <TableCell>
-                          <StatusCell status={row.status} />
-                        </TableCell>
-                        <TableCell>
-                          {row.category?.name ?? "—"}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Button
-                            component={Link}
-                            href={`/pedidos/${row.id}`}
-                            size="small"
-                            startIcon={<VisibilityIcon />}
-                            sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
-                            aria-label="Ver orden"
-                          >
-                            <Box
-                              component="span"
-                              sx={{ display: { xs: "none", sm: "inline" } }}
-                            >
-                              Ver orden
-                            </Box>
-                          </Button>
-                          <Button
-                            component={Link}
-                            href={`/editar-pedido/${row.id}`}
-                            size="small"
-                            variant="outlined"
-                            startIcon={<EditIcon />}
-                            disabled={row.status === "CANCELLED"}
-                            sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
-                            aria-label="Editar orden"
-                          >
-                            <Box
-                              component="span"
-                              sx={{ display: { xs: "none", sm: "inline" } }}
-                            >
-                              Editar orden
-                            </Box>
-                          </Button>
-                          <Button
-                            size="small"
-                            color="error"
-                            variant="contained"
-                            startIcon={<CancelIcon />}
-                            disabled={row.status === "CANCELLED"}
-                            onClick={() => openCancelModal(row)}
-                            sx={{ minWidth: { xs: "auto", sm: 0 } }}
-                            aria-label="Cancelar orden"
-                          >
-                            <Box
-                              component="span"
-                              sx={{ display: { xs: "none", sm: "inline" } }}
-                            >
-                              Cancelar orden
-                            </Box>
-                          </Button>
+                  </TableHead>
+                  <TableBody>
+                    {sortedOrders.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                          <Typography color="text.secondary">
+                            {statusFilter === "all" && categoryFilter === "all"
+                              ? "No hay pedidos registrados"
+                              : "No hay pedidos que coincidan con los filtros"}
+                          </Typography>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                    ) : (
+                      sortedOrders.map((row) => (
+                        <TableRow key={row.id} hover>
+                          <TableCell>{row.clientName}</TableCell>
+                          <TableCell>{formatDate(row.date)}</TableCell>
+                          <TableCell>
+                            <StatusCell status={row.status} />
+                          </TableCell>
+                          <TableCell>{row.category?.name ?? "—"}</TableCell>
+                          <TableCell align="right">
+                            <Button
+                              component={Link}
+                              href={`/pedidos/${row.id}`}
+                              size="small"
+                              startIcon={<VisibilityIcon />}
+                              sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
+                              aria-label="Ver"
+                            >
+                              <Box
+                                component="span"
+                                sx={{ display: { xs: "none", sm: "inline" } }}
+                              >
+                                Ver
+                              </Box>
+                            </Button>
+                            <Button
+                              component={Link}
+                              href={`/editar-pedido/${row.id}`}
+                              size="small"
+                              variant="outlined"
+                              startIcon={<EditIcon />}
+                              disabled={row.status === "CANCELLED"}
+                              sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
+                              aria-label="Editar"
+                            >
+                              <Box
+                                component="span"
+                                sx={{ display: { xs: "none", sm: "inline" } }}
+                              >
+                                Editar
+                              </Box>
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="contained"
+                              startIcon={<CancelIcon />}
+                              disabled={row.status === "CANCELLED"}
+                              onClick={() => openCancelModal(row)}
+                              sx={{ minWidth: { xs: "auto", sm: 0 } }}
+                              aria-label="Cancelar"
+                            >
+                              <Box
+                                component="span"
+                                sx={{ display: { xs: "none", sm: "inline" } }}
+                              >
+                                Cancelar
+                              </Box>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
           )}
         </CardContent>
       </Card>

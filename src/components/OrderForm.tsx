@@ -114,11 +114,17 @@ export function OrderForm({
   const [quote, setQuote] = useState(merged.quote);
   const [deposit, setDeposit] = useState(merged.deposit);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(merged.referenceUrl);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    merged.referenceUrl,
+  );
   const [categoryId, setCategoryId] = useState(merged.categoryId);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [registerPastEvent, setRegisterPastEvent] = useState(merged.registerPastEvent);
-  const [eventsOnSelectedDate, setEventsOnSelectedDate] = useState<OrderEvent[]>([]);
+  const [registerPastEvent, setRegisterPastEvent] = useState(
+    merged.registerPastEvent,
+  );
+  const [eventsOnSelectedDate, setEventsOnSelectedDate] = useState<
+    OrderEvent[]
+  >([]);
   const [eventsDrawerOpen, setEventsDrawerOpen] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -173,7 +179,9 @@ export function OrderForm({
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         if (isEdit && orderId) {
-          setEventsOnSelectedDate(list.filter((o: OrderEvent) => o.id !== orderId));
+          setEventsOnSelectedDate(
+            list.filter((o: OrderEvent) => o.id !== orderId),
+          );
         } else {
           setEventsOnSelectedDate(list);
         }
@@ -188,45 +196,41 @@ export function OrderForm({
     return Math.max(0, quoteVal - depositVal);
   }, [quote, deposit]);
 
-  const minDate = useMemo(
-    () => new Date().toISOString().split("T")[0],
-    []
-  );
+  const minDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess(false);
 
-    if (
-      !clientName ||
-      !phone ||
-      !date ||
-      !address ||
-      !categoryId ||
-      !quote
-    ) {
+    if (!clientName || !phone || !date || !address || !categoryId || !quote) {
       setError(
-        "Completa todos los campos obligatorios: nombre, teléfono, dirección, fecha, categoría y cotización."
+        "Completa todos los campos obligatorios: nombre, teléfono, dirección, fecha, temática y cotización.",
       );
       return;
     }
 
-    if (referenceRequired && !referenceFile && !(isEdit && merged.referenceUrl)) {
+    if (
+      referenceRequired &&
+      !referenceFile &&
+      !(isEdit && merged.referenceUrl)
+    ) {
       setError("La imagen referencial es obligatoria.");
       return;
     }
 
     if (!registerPastEvent && date < minDate) {
       setError(
-        "La fecha no puede ser anterior a hoy. Marca «Registrar evento pasado» si deseas usar una fecha pasada."
+        "La fecha no puede ser anterior a hoy. Marca «Registrar evento pasado» si deseas usar una fecha pasada.",
       );
       return;
     }
 
     setLoading(true);
     try {
-      let referenceUrl: string | null = isEdit ? merged.referenceUrl ?? null : null;
+      let referenceUrl: string | null = isEdit
+        ? (merged.referenceUrl ?? null)
+        : null;
       if (referenceFile) {
         const formData = new FormData();
         formData.append("file", referenceFile);
@@ -375,7 +379,11 @@ export function OrderForm({
                 sx={{ mt: 1, display: "block" }}
               />
               {loadingEvents && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 1 }}
+                >
                   Buscando eventos...
                 </Typography>
               )}
@@ -385,7 +393,8 @@ export function OrderForm({
                   sx={{ mt: 1.5, cursor: "pointer" }}
                   onClick={() => setEventsDrawerOpen(true)}
                 >
-                  Tienes {eventsOnSelectedDate.length} evento(s) registrados ese día, click aquí para mostrarlos
+                  Tienes {eventsOnSelectedDate.length} evento(s) registrados ese
+                  día, click aquí para mostrarlos
                 </Alert>
               )}
             </Grid>
@@ -415,16 +424,16 @@ export function OrderForm({
             <Grid size={{ xs: 12 }}>
               <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
                 <FormControl fullWidth required sx={{ flex: 1 }}>
-                  <InputLabel id="category-label">Categoría</InputLabel>
+                  <InputLabel id="category-label">Temática</InputLabel>
                   <Select
                     labelId="category-label"
-                    label="Categoría"
+                    label="Temática"
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                     displayEmpty
                   >
                     <MenuItem value="" disabled>
-                      <em>Seleccione una categoría</em>
+                      <em>Seleccione una temática</em>
                     </MenuItem>
                     {categories.map((cat) => (
                       <MenuItem key={cat.id} value={String(cat.id)}>
@@ -440,7 +449,7 @@ export function OrderForm({
                     setCategoryDescripcion("");
                     setCategoryModalOpen(true);
                   }}
-                  title="Agregar categoría"
+                  title="Agregar temática"
                   sx={{ mt: 1 }}
                 >
                   <AddIcon />
@@ -453,7 +462,7 @@ export function OrderForm({
                 maxWidth="sm"
                 fullWidth
               >
-                <DialogTitle>Agregar categoría</DialogTitle>
+                <DialogTitle>Agregar temática</DialogTitle>
                 <DialogContent>
                   <Box
                     sx={{
@@ -502,8 +511,7 @@ export function OrderForm({
                           credentials: "omit",
                           body: JSON.stringify({
                             name: categoryNombre.trim(),
-                            description:
-                              categoryDescripcion.trim() || null,
+                            description: categoryDescripcion.trim() || null,
                           }),
                         });
                         if (!res.ok) throw new Error("No se pudo guardar");
@@ -512,7 +520,7 @@ export function OrderForm({
                         setCategoryId(String(newCat.id));
                         setCategoryModalOpen(false);
                       } catch {
-                        setError("No se pudo crear la categoría");
+                        setError("No se pudo crear la temática");
                       } finally {
                         setCategorySaving(false);
                       }
@@ -530,7 +538,10 @@ export function OrderForm({
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 Imagen referencial
                 {referenceRequired && (
-                  <span style={{ color: "var(--mui-palette-error-main)" }}> *</span>
+                  <span style={{ color: "var(--mui-palette-error-main)" }}>
+                    {" "}
+                    *
+                  </span>
                 )}
               </Typography>
               <Button
@@ -539,12 +550,18 @@ export function OrderForm({
                 fullWidth
                 color={!referenceFile && !previewUrl ? "error" : "primary"}
               >
-                {referenceFile ? referenceFile.name : previewUrl ? "Imagen actual" : "Seleccionar imagen"}
+                {referenceFile
+                  ? referenceFile.name
+                  : previewUrl
+                    ? "Imagen actual"
+                    : "Seleccionar imagen"}
                 <input
                   type="file"
                   hidden
                   accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={(e) => setReferenceFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    setReferenceFile(e.target.files?.[0] ?? null)
+                  }
                 />
               </Button>
               {previewUrl && (
@@ -655,35 +672,74 @@ export function OrderForm({
             Eventos del {date || "día"}
           </Typography>
           {eventsOnSelectedDate.map((order) => (
-            <Accordion key={order.id} defaultExpanded={false} disableGutters sx={{ "&:before": { display: "none" } }}>
+            <Accordion
+              key={order.id}
+              defaultExpanded={false}
+              disableGutters
+              sx={{ "&:before": { display: "none" } }}
+            >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.25 }}>
-                  <Typography variant="subtitle2">{order.clientName}</Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 0.25,
+                  }}
+                >
+                  <Typography variant="subtitle2">
+                    {order.clientName}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {order.category?.name ?? "Sin categoría"}
+                    {order.category?.name ?? "Sin temática"}
                   </Typography>
                 </Box>
               </AccordionSummary>
-              <AccordionDetails sx={{ pt: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-                <Typography variant="body2"><strong>Cliente:</strong> {order.clientName}</Typography>
+              <AccordionDetails
+                sx={{ pt: 0, display: "flex", flexDirection: "column", gap: 1 }}
+              >
+                <Typography variant="body2">
+                  <strong>Cliente:</strong> {order.clientName}
+                </Typography>
                 {order.phone && (
-                  <Typography variant="body2"><strong>Teléfono:</strong> {order.phone}</Typography>
+                  <Typography variant="body2">
+                    <strong>Teléfono:</strong> {order.phone}
+                  </Typography>
                 )}
-                <Typography variant="body2"><strong>Fecha:</strong> {order.date}</Typography>
-                <Typography variant="body2"><strong>Dirección:</strong> {order.address}</Typography>
+                <Typography variant="body2">
+                  <strong>Fecha:</strong> {order.date}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Dirección:</strong> {order.address}
+                </Typography>
                 {order.description && (
-                  <Typography variant="body2"><strong>Descripción:</strong> {order.description}</Typography>
+                  <Typography variant="body2">
+                    <strong>Descripción:</strong> {order.description}
+                  </Typography>
                 )}
-                <Typography variant="body2"><strong>Cotización:</strong> S/. {Number(order.price).toFixed(2)}</Typography>
+                <Typography variant="body2">
+                  <strong>Cotización:</strong> S/.{" "}
+                  {Number(order.price).toFixed(2)}
+                </Typography>
                 {order.deposit != null && (
-                  <Typography variant="body2"><strong>A cuenta:</strong> S/. {Number(order.deposit).toFixed(2)}</Typography>
+                  <Typography variant="body2">
+                    <strong>A cuenta:</strong> S/.{" "}
+                    {Number(order.deposit).toFixed(2)}
+                  </Typography>
                 )}
                 {order.balance != null && (
-                  <Typography variant="body2"><strong>Pendiente:</strong> S/. {Number(order.balance).toFixed(2)}</Typography>
+                  <Typography variant="body2">
+                    <strong>Pendiente:</strong> S/.{" "}
+                    {Number(order.balance).toFixed(2)}
+                  </Typography>
                 )}
-                <Typography variant="body2"><strong>Estado:</strong> {order.status}</Typography>
+                <Typography variant="body2">
+                  <strong>Estado:</strong> {order.status}
+                </Typography>
                 {order.category && (
-                  <Typography variant="body2"><strong>Categoría:</strong> {order.category.name}</Typography>
+                  <Typography variant="body2">
+                    <strong>Temática:</strong> {order.category.name}
+                  </Typography>
                 )}
               </AccordionDetails>
             </Accordion>
