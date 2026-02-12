@@ -284,7 +284,7 @@ export function OrderForm({
             price: parseFloat(quote) || 0,
             deposit: parseFloat(deposit) || 0,
             balance,
-            status: "PENDING",
+            status: registerPastEvent ? "COMPLETE" : "PENDING",
             reference: referenceUrl,
             category_id: categoryId ? Number(categoryId) : null,
           }),

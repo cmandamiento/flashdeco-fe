@@ -286,9 +286,15 @@ function ListarPedidosContent() {
                             href={`/pedidos/${row.id}`}
                             size="small"
                             startIcon={<VisibilityIcon />}
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
+                            aria-label="Ver orden"
                           >
-                            Ver orden
+                            <Box
+                              component="span"
+                              sx={{ display: { xs: "none", sm: "inline" } }}
+                            >
+                              Ver orden
+                            </Box>
                           </Button>
                           <Button
                             component={Link}
@@ -297,9 +303,15 @@ function ListarPedidosContent() {
                             variant="outlined"
                             startIcon={<EditIcon />}
                             disabled={row.status === "CANCELLED"}
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
+                            aria-label="Editar orden"
                           >
-                            Editar orden
+                            <Box
+                              component="span"
+                              sx={{ display: { xs: "none", sm: "inline" } }}
+                            >
+                              Editar orden
+                            </Box>
                           </Button>
                           <Button
                             size="small"
@@ -308,8 +320,15 @@ function ListarPedidosContent() {
                             startIcon={<CancelIcon />}
                             disabled={row.status === "CANCELLED"}
                             onClick={() => openCancelModal(row)}
+                            sx={{ minWidth: { xs: "auto", sm: 0 } }}
+                            aria-label="Cancelar orden"
                           >
-                            Cancelar orden
+                            <Box
+                              component="span"
+                              sx={{ display: { xs: "none", sm: "inline" } }}
+                            >
+                              Cancelar orden
+                            </Box>
                           </Button>
                         </TableCell>
                       </TableRow>
