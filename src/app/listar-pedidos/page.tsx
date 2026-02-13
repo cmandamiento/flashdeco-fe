@@ -13,7 +13,9 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Select,
   Snackbar,
@@ -24,12 +26,14 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  TextField,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CancelIcon from "@mui/icons-material/Cancel";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -56,6 +60,7 @@ type Order = {
   reference: string | null;
   result: string | null;
   category: Category | null;
+  client_dni?: string | null;
 };
 
 type OrderBy = "clientName" | "date" | "status" | "category";
@@ -111,11 +116,29 @@ function ListarPedidosContent() {
   >("PENDING");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
+  const [dniFilter, setDniFilter] = useState("");
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [menuOrder, setMenuOrder] = useState<Order | null>(null);
+
+  const openActionsMenu = (event: React.MouseEvent<HTMLElement>, order: Order) => {
+    event.preventDefault();
+    setMenuAnchor(event.currentTarget);
+    setMenuOrder(order);
+  };
+
+  const closeActionsMenu = () => {
+    setMenuAnchor(null);
+    setMenuOrder(null);
+  };
 
   useEffect(() => {
     if (searchParams.get("created") === "true") {
       setSuccessSnackbarOpen(true);
       router.replace("/listar-pedidos");
+    }
+    const dniParam = searchParams.get("dni") ?? "";
+    if (dniParam && /^\d{8}$/.test(dniParam)) {
+      setDniFilter(dniParam);
     }
   }, [searchParams, router]);
 
@@ -123,7 +146,11 @@ function ListarPedidosContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/orders`, {
+      const params = new URLSearchParams();
+      const dni = dniFilter.replace(/\D/g, "");
+      if (dni.length === 8) params.set("dni", dni);
+      const url = `${API_BASE_URL}/orders${params.toString() ? `?${params}` : ""}`;
+      const res = await fetch(url, {
         headers: getAuthHeaders(),
         credentials: "omit",
       });
@@ -135,7 +162,7 @@ function ListarPedidosContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dniFilter]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -258,18 +285,22 @@ function ListarPedidosContent() {
               <Box
                 sx={{
                   display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
+                  flexDirection: { xs: "column", sm: "row" },
+                  flexWrap: { sm: "wrap" },
+                  alignItems: { xs: "stretch", sm: "center" },
                   gap: 2,
                   p: 2,
                   borderBottom: 1,
                   borderColor: "divider",
                 }}
               >
-                <Typography component="span" variant="body2">
-                  Listar:
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 160 }}>
+                <FormControl
+                  size="small"
+                  sx={{
+                    minWidth: { xs: "100%", sm: 160 },
+                    maxWidth: { xs: "100%", sm: 200 },
+                  }}
+                >
                   <InputLabel id="status-filter-label">Estado</InputLabel>
                   <Select
                     labelId="status-filter-label"
@@ -291,10 +322,27 @@ function ListarPedidosContent() {
                     <MenuItem value="all">Todos</MenuItem>
                   </Select>
                 </FormControl>
-                <Typography component="span" variant="body2">
-                  Temática:
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 160 }}>
+                <TextField
+                  size="small"
+                  label="DNI cliente"
+                  placeholder="8 dígitos"
+                  value={dniFilter}
+                  onChange={(e) =>
+                    setDniFilter(e.target.value.replace(/\D/g, "").slice(0, 8))
+                  }
+                  sx={{
+                    minWidth: { xs: "100%", sm: 140 },
+                    maxWidth: { xs: "100%", sm: 160 },
+                  }}
+                  inputProps={{ maxLength: 8, inputMode: "numeric" }}
+                />
+                <FormControl
+                  size="small"
+                  sx={{
+                    minWidth: { xs: "100%", sm: 160 },
+                    maxWidth: { xs: "100%", sm: 200 },
+                  }}
+                >
                   <InputLabel id="category-filter-label">Temática</InputLabel>
                   <Select
                     labelId="category-filter-label"
@@ -383,55 +431,59 @@ function ListarPedidosContent() {
                           </TableCell>
                           <TableCell>{row.category?.name ?? "—"}</TableCell>
                           <TableCell align="right">
-                            <Button
-                              component={Link}
-                              href={`/pedidos/${row.id}`}
-                              size="small"
-                              startIcon={<VisibilityIcon />}
-                              sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
-                              aria-label="Ver"
+                            <Box
+                              sx={{
+                                display: { xs: "block", sm: "none" },
+                              }}
                             >
-                              <Box
-                                component="span"
-                                sx={{ display: { xs: "none", sm: "inline" } }}
+                              <IconButton
+                                aria-label="Acciones"
+                                aria-haspopup="true"
+                                onClick={(e) => openActionsMenu(e, row)}
+                                sx={{ minWidth: 48, minHeight: 48 }}
+                              >
+                                <MoreVertIcon />
+                              </IconButton>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: { xs: "none", sm: "flex" },
+                                gap: 0.5,
+                                justifyContent: "flex-end",
+                              }}
+                            >
+                              <Button
+                                component={Link}
+                                href={`/pedidos/${row.id}`}
+                                size="small"
+                                startIcon={<VisibilityIcon />}
+                                aria-label="Ver"
                               >
                                 Ver
-                              </Box>
-                            </Button>
-                            <Button
-                              component={Link}
-                              href={`/editar-pedido/${row.id}`}
-                              size="small"
-                              variant="outlined"
-                              startIcon={<EditIcon />}
-                              disabled={row.status === "CANCELLED"}
-                              sx={{ mr: 1, minWidth: { xs: "auto", sm: 0 } }}
-                              aria-label="Editar"
-                            >
-                              <Box
-                                component="span"
-                                sx={{ display: { xs: "none", sm: "inline" } }}
+                              </Button>
+                              <Button
+                                component={Link}
+                                href={`/editar-pedido/${row.id}`}
+                                size="small"
+                                variant="outlined"
+                                startIcon={<EditIcon />}
+                                disabled={row.status === "CANCELLED"}
+                                aria-label="Editar"
                               >
                                 Editar
-                              </Box>
-                            </Button>
-                            <Button
-                              size="small"
-                              color="error"
-                              variant="contained"
-                              startIcon={<CancelIcon />}
-                              disabled={row.status === "CANCELLED"}
-                              onClick={() => openCancelModal(row)}
-                              sx={{ minWidth: { xs: "auto", sm: 0 } }}
-                              aria-label="Cancelar"
-                            >
-                              <Box
-                                component="span"
-                                sx={{ display: { xs: "none", sm: "inline" } }}
+                              </Button>
+                              <Button
+                                size="small"
+                                color="error"
+                                variant="contained"
+                                startIcon={<CancelIcon />}
+                                disabled={row.status === "CANCELLED"}
+                                onClick={() => openCancelModal(row)}
+                                aria-label="Cancelar"
                               >
                                 Cancelar
-                              </Box>
-                            </Button>
+                              </Button>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       ))
@@ -443,6 +495,50 @@ function ListarPedidosContent() {
           )}
         </CardContent>
       </Card>
+
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{ paper: { sx: { minWidth: 160 } } }}
+      >
+        <MenuItem
+          component={Link}
+          href={menuOrder ? `/pedidos/${menuOrder.id}` : "#"}
+          onClick={closeActionsMenu}
+          sx={{ minHeight: 48, py: 1.5 }}
+        >
+          <VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />
+          Ver
+        </MenuItem>
+        <MenuItem
+          component={Link}
+          href={menuOrder ? `/editar-pedido/${menuOrder.id}` : "#"}
+          onClick={closeActionsMenu}
+          disabled={menuOrder?.status === "CANCELLED"}
+          sx={{ minHeight: 48, py: 1.5 }}
+        >
+          <EditIcon sx={{ mr: 1.5, fontSize: 20 }} />
+          Editar
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (menuOrder) openCancelModal(menuOrder);
+            closeActionsMenu();
+          }}
+          disabled={menuOrder?.status === "CANCELLED"}
+          sx={{
+            minHeight: 48,
+            py: 1.5,
+            color: "error.main",
+          }}
+        >
+          <CancelIcon sx={{ mr: 1.5, fontSize: 20 }} />
+          Cancelar
+        </MenuItem>
+      </Menu>
 
       <Dialog open={cancelModalOpen} onClose={closeCancelModal}>
         <DialogTitle>Cancelar pedido</DialogTitle>

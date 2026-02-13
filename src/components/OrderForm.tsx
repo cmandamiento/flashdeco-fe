@@ -5,11 +5,13 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Backdrop,
   Box,
   Button,
   Card,
   CardContent,
   Checkbox,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -58,6 +60,7 @@ export type OrderEvent = {
 };
 
 export type OrderFormInitialValues = {
+  dni: string;
   clientName: string;
   phone: string;
   date: string;
@@ -67,6 +70,7 @@ export type OrderFormInitialValues = {
   deposit: string;
   categoryId: string;
   referenceUrl: string | null;
+  resultUrl: string | null;
   registerPastEvent: boolean;
   status?: string;
 };
@@ -83,6 +87,7 @@ type OrderFormProps = {
 };
 
 const defaultInitial: OrderFormInitialValues = {
+  dni: "",
   clientName: "",
   phone: "",
   date: "",
@@ -92,6 +97,7 @@ const defaultInitial: OrderFormInitialValues = {
   deposit: "",
   categoryId: "",
   referenceUrl: null,
+  resultUrl: null,
   registerPastEvent: false,
 };
 
@@ -106,8 +112,11 @@ export function OrderForm({
   onSuccess,
 }: OrderFormProps) {
   const merged = { ...defaultInitial, ...initialValues };
+  const [dni, setDni] = useState(merged.dni ?? "");
   const [clientName, setClientName] = useState(merged.clientName);
   const [phone, setPhone] = useState(merged.phone);
+  const [clientFoundByDni, setClientFoundByDni] = useState(false);
+  const [clientLookupLoading, setClientLookupLoading] = useState(false);
   const [date, setDate] = useState(merged.date);
   const [address, setAddress] = useState(merged.address);
   const [description, setDescription] = useState(merged.description);
@@ -116,6 +125,10 @@ export function OrderForm({
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
     merged.referenceUrl,
+  );
+  const [resultFile, setResultFile] = useState<File | null>(null);
+  const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(
+    merged.resultUrl ?? null,
   );
   const [categoryId, setCategoryId] = useState(merged.categoryId);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -149,6 +162,42 @@ export function OrderForm({
   const hasExistingReference = Boolean(merged.referenceUrl);
   const referenceRequired = !isEdit || !hasExistingReference;
 
+  const handleDniChange = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    setDni(digits);
+    if (clientFoundByDni) {
+      setClientFoundByDni(false);
+      setClientName("");
+      setPhone("");
+    }
+  };
+
+  useEffect(() => {
+    if (dni.length !== 8) return;
+    const abortController = new AbortController();
+    setClientLookupLoading(true);
+    fetch(`${API_BASE_URL}/clients/by-dni/${dni}`, {
+      headers: getAuthHeaders(),
+      credentials: "omit",
+      signal: abortController.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.id != null) {
+          setClientName(data.full_name ?? "");
+          setPhone(data.phone ?? "");
+          setClientFoundByDni(true);
+        } else {
+          setClientName("");
+          setPhone("");
+          setClientFoundByDni(false);
+        }
+      })
+      .catch(() => setClientFoundByDni(false))
+      .finally(() => setClientLookupLoading(false));
+    return () => abortController.abort();
+  }, [dni]);
+
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
@@ -164,6 +213,18 @@ export function OrderForm({
       setPreviewUrl(null);
     }
   }, [referenceFile, isEdit, merged.referenceUrl]);
+
+  useEffect(() => {
+    if (resultFile) {
+      const url = URL.createObjectURL(resultFile);
+      setResultPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else if (isEdit && merged.resultUrl) {
+      setResultPreviewUrl(merged.resultUrl);
+    } else {
+      setResultPreviewUrl(null);
+    }
+  }, [resultFile, isEdit, merged.resultUrl]);
 
   useEffect(() => {
     if (!date) {
@@ -251,11 +312,31 @@ export function OrderForm({
       }
 
       if (isEdit && orderId != null) {
+        let resultUrl: string | null = merged.resultUrl ?? null;
+        if (resultFile) {
+          const formData = new FormData();
+          formData.append("file", resultFile);
+          const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            credentials: "omit",
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const data = await uploadRes.json().catch(() => null);
+            setError(data?.detail || "No se pudo subir la imagen de resultado.");
+            setLoading(false);
+            return;
+          }
+          const { url } = await uploadRes.json();
+          resultUrl = url;
+        }
         const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           credentials: "omit",
           body: JSON.stringify({
+            dni: dni.length === 8 ? dni : undefined,
             clientName,
             phone: phone || null,
             date,
@@ -266,6 +347,7 @@ export function OrderForm({
             balance,
             status: merged.status || "PENDING",
             reference: referenceUrl,
+            result: resultUrl,
             category_id: categoryId ? Number(categoryId) : null,
           }),
         });
@@ -280,6 +362,7 @@ export function OrderForm({
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           credentials: "omit",
           body: JSON.stringify({
+            dni: dni.length === 8 ? dni : undefined,
             clientName,
             phone: phone || null,
             date,
@@ -315,6 +398,18 @@ export function OrderForm({
 
   return (
     <>
+      <Backdrop
+        open={clientLookupLoading}
+        sx={{
+          color: "#fff",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        <CircularProgress color="inherit" />
+        <Typography variant="body1">Buscando cliente...</Typography>
+      </Backdrop>
       <Card component="form" onSubmit={handleSubmit}>
         <CardContent sx={{ p: 3 }}>
           {error && (
@@ -328,13 +423,27 @@ export function OrderForm({
             </Alert>
           )}
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="DNI (8 dígitos, opcional)"
+                value={dni}
+                onChange={(e) => handleDniChange(e.target.value)}
+                inputProps={{ maxLength: 8, inputMode: "numeric" }}
+                helperText="Al ingresar 8 dígitos se busca el cliente automáticamente"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Nombre del cliente"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 required
+                InputProps={{ readOnly: clientFoundByDni }}
+                helperText={
+                  clientFoundByDni ? "Cliente encontrado por DNI" : undefined
+                }
               />
             </Grid>
 
@@ -581,6 +690,50 @@ export function OrderForm({
                 />
               )}
             </Grid>
+
+            {isEdit && (
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Resultado
+                </Typography>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  fullWidth
+                  color={!resultFile && !resultPreviewUrl ? "inherit" : "primary"}
+                >
+                  {resultFile
+                    ? resultFile.name
+                    : resultPreviewUrl
+                      ? "Imagen actual"
+                      : "Seleccionar imagen resultado"}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setResultFile(e.target.files?.[0] ?? null)
+                    }
+                  />
+                </Button>
+                {resultPreviewUrl && (
+                  <Box
+                    component="img"
+                    src={resultPreviewUrl}
+                    alt="Vista previa resultado"
+                    sx={{
+                      mt: 2,
+                      maxWidth: "100%",
+                      maxHeight: 240,
+                      objectFit: "contain",
+                      borderRadius: 1,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  />
+                )}
+              </Grid>
+            )}
 
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField

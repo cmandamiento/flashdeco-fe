@@ -21,12 +21,15 @@ type Order = {
   balance: number | null;
   status: string;
   reference: string | null;
+  result: string | null;
   category: { id: number; name: string } | null;
   category_id: number | null;
+  client_dni?: string | null;
 };
 
 function orderToInitialValues(order: Order): OrderFormInitialValues {
   return {
+    dni: order.client_dni ?? "",
     clientName: order.clientName,
     phone: order.phone ?? "",
     date: order.date,
@@ -36,6 +39,7 @@ function orderToInitialValues(order: Order): OrderFormInitialValues {
     deposit: order.deposit != null ? String(order.deposit) : "",
     categoryId: order.category_id != null ? String(order.category_id) : "",
     referenceUrl: order.reference,
+    resultUrl: order.result ?? null,
     registerPastEvent: false,
     status: order.status,
   };
