@@ -282,7 +282,7 @@ export function OrderForm({
       return;
     }
 
-    if (!registerPastEvent && date < minDate) {
+    if (!registerPastEvent && merged.status !== "COMPLETE" && date < minDate) {
       setError(
         "La fecha no puede ser anterior a hoy. Marca «Registrar evento pasado» si deseas usar una fecha pasada.",
       );
@@ -470,7 +470,10 @@ export function OrderForm({
                 onChange={(e) => setDate(e.target.value)}
                 slotProps={{
                   inputLabel: { shrink: true },
-                  htmlInput: registerPastEvent ? undefined : { min: minDate },
+                  htmlInput:
+                    registerPastEvent || merged.status === "COMPLETE"
+                      ? undefined
+                      : { min: minDate },
                 }}
                 required
                 helperText={

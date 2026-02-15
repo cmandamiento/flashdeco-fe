@@ -103,6 +103,18 @@ function getComparator(orderBy: OrderBy): (a: Order, b: Order) => number {
 function ListarPedidosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const initialDni = (() => {
+    const dni = searchParams.get("dni") ?? "";
+    return dni && /^\d{8}$/.test(dni) ? dni : "";
+  })();
+  const initialStatus = (() => {
+    const s = searchParams.get("status");
+    return s && ["PENDING", "COMPLETE", "CANCELLED", "all"].includes(s)
+      ? (s as "PENDING" | "COMPLETE" | "CANCELLED" | "all")
+      : "PENDING";
+  })();
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,10 +126,10 @@ function ListarPedidosContent() {
   const [successSnackbarOpen, setSuccessSnackbarOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<
     "PENDING" | "COMPLETE" | "CANCELLED" | "all"
-  >("PENDING");
+  >(initialStatus);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
-  const [dniFilter, setDniFilter] = useState("");
+  const [dniFilter, setDniFilter] = useState(initialDni);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuOrder, setMenuOrder] = useState<Order | null>(null);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
@@ -180,6 +192,13 @@ function ListarPedidosContent() {
     const dniParam = searchParams.get("dni") ?? "";
     if (dniParam && /^\d{8}$/.test(dniParam)) {
       setDniFilter(dniParam);
+    }
+    const statusParam = searchParams.get("status");
+    if (
+      statusParam &&
+      ["PENDING", "COMPLETE", "CANCELLED", "all"].includes(statusParam)
+    ) {
+      setStatusFilter(statusParam as "PENDING" | "COMPLETE" | "CANCELLED" | "all");
     }
   }, [searchParams, router]);
 

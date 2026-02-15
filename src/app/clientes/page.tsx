@@ -37,6 +37,7 @@ type Client = {
   dni: string;
   full_name: string;
   phone: string | null;
+  order_count?: number;
 };
 
 export default function ClientesPage() {
@@ -204,13 +205,14 @@ export default function ClientesPage() {
                     <TableCell>DNI</TableCell>
                     <TableCell>Nombres completos</TableCell>
                     <TableCell>Teléfono</TableCell>
+                    <TableCell align="center">Nro de pedidos</TableCell>
                     <TableCell align="right" sx={{ width: 56 }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {clients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
                           No hay clientes registrados
                         </Typography>
@@ -222,6 +224,7 @@ export default function ClientesPage() {
                         <TableCell>{row.dni}</TableCell>
                         <TableCell>{row.full_name}</TableCell>
                         <TableCell>{row.phone ?? "—"}</TableCell>
+                        <TableCell align="center">{row.order_count ?? 0}</TableCell>
                         <TableCell align="right">
                           <IconButton
                             aria-label="Acciones"
@@ -250,7 +253,7 @@ export default function ClientesPage() {
       >
         <MenuItem
           component={Link}
-          href={menuClient ? `/listar-pedidos?dni=${menuClient.dni}` : "#"}
+          href={menuClient ? `/listar-pedidos?dni=${menuClient.dni}&status=all` : "#"}
           onClick={closeMenu}
         >
           Ver pedidos
