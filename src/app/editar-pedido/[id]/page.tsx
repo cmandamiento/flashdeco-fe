@@ -22,6 +22,7 @@ type Order = {
   status: string;
   reference: string | null;
   result: string | null;
+  observations: string | null;
   category: { id: number; name: string } | null;
   category_id: number | null;
   client_dni?: string | null;
@@ -40,6 +41,7 @@ function orderToInitialValues(order: Order): OrderFormInitialValues {
     categoryId: order.category_id != null ? String(order.category_id) : "",
     referenceUrl: order.reference,
     resultUrl: order.result ?? null,
+    observations: order.observations ?? "",
     registerPastEvent: false,
     status: order.status,
   };

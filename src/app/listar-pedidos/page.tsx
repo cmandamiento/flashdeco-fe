@@ -34,6 +34,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CancelIcon from "@mui/icons-material/Cancel";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -119,6 +120,46 @@ function ListarPedidosContent() {
   const [dniFilter, setDniFilter] = useState("");
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuOrder, setMenuOrder] = useState<Order | null>(null);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [orderToComplete, setOrderToComplete] = useState<Order | null>(null);
+  const [completeObservations, setCompleteObservations] = useState("");
+  const [completing, setCompleting] = useState(false);
+
+  const openCompleteModal = (order: Order) => {
+    setOrderToComplete(order);
+    setCompleteObservations("");
+    setCompleteModalOpen(true);
+  };
+
+  const closeCompleteModal = () => {
+    if (!completing) {
+      setCompleteModalOpen(false);
+      setOrderToComplete(null);
+    }
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!orderToComplete) return;
+    setCompleting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${orderToComplete.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "omit",
+        body: JSON.stringify({
+          status: "COMPLETE",
+          observations: completeObservations.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudo completar el pedido");
+      await fetchOrders();
+      closeCompleteModal();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al completar");
+    } finally {
+      setCompleting(false);
+    }
+  };
 
   const openActionsMenu = (event: React.MouseEvent<HTMLElement>, order: Order) => {
     event.preventDefault();
@@ -462,6 +503,20 @@ function ListarPedidosContent() {
                                 Ver
                               </Button>
                               <Button
+                                size="small"
+                                color="success"
+                                variant="contained"
+                                startIcon={<CheckCircleIcon />}
+                                disabled={
+                                  row.status === "CANCELLED" ||
+                                  row.status === "COMPLETE"
+                                }
+                                onClick={() => openCompleteModal(row)}
+                                aria-label="Completar orden"
+                              >
+                                Completar
+                              </Button>
+                              <Button
                                 component={Link}
                                 href={`/editar-pedido/${row.id}`}
                                 size="small"
@@ -514,6 +569,20 @@ function ListarPedidosContent() {
           Ver
         </MenuItem>
         <MenuItem
+          onClick={() => {
+            if (menuOrder) openCompleteModal(menuOrder);
+            closeActionsMenu();
+          }}
+          disabled={
+            menuOrder?.status === "CANCELLED" ||
+            menuOrder?.status === "COMPLETE"
+          }
+          sx={{ minHeight: 48, py: 1.5, color: "success.main" }}
+        >
+          <CheckCircleIcon sx={{ mr: 1.5, fontSize: 20 }} />
+          Completar orden
+        </MenuItem>
+        <MenuItem
           component={Link}
           href={menuOrder ? `/editar-pedido/${menuOrder.id}` : "#"}
           onClick={closeActionsMenu}
@@ -539,6 +608,42 @@ function ListarPedidosContent() {
           Cancelar
         </MenuItem>
       </Menu>
+
+      <Dialog open={completeModalOpen} onClose={closeCompleteModal} maxWidth="sm" fullWidth>
+        <DialogTitle>Completar orden</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Nombre"
+              value={orderToComplete?.clientName ?? ""}
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              fullWidth
+              label="Hubo alguna observación con la orden?"
+              multiline
+              rows={4}
+              value={completeObservations}
+              onChange={(e) => setCompleteObservations(e.target.value)}
+              placeholder="Observaciones..."
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCompleteModal} disabled={completing}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmComplete}
+            color="success"
+            variant="contained"
+            disabled={completing}
+          >
+            {completing ? "Completando..." : "Completar orden"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={cancelModalOpen} onClose={closeCancelModal}>
         <DialogTitle>Cancelar pedido</DialogTitle>

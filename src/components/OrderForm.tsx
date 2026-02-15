@@ -71,6 +71,7 @@ export type OrderFormInitialValues = {
   categoryId: string;
   referenceUrl: string | null;
   resultUrl: string | null;
+  observations: string;
   registerPastEvent: boolean;
   status?: string;
 };
@@ -98,6 +99,7 @@ const defaultInitial: OrderFormInitialValues = {
   categoryId: "",
   referenceUrl: null,
   resultUrl: null,
+  observations: "",
   registerPastEvent: false,
 };
 
@@ -130,6 +132,7 @@ export function OrderForm({
   const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(
     merged.resultUrl ?? null,
   );
+  const [observations, setObservations] = useState(merged.observations ?? "");
   const [categoryId, setCategoryId] = useState(merged.categoryId);
   const [categories, setCategories] = useState<Category[]>([]);
   const [registerPastEvent, setRegisterPastEvent] = useState(
@@ -188,9 +191,8 @@ export function OrderForm({
           setPhone(data.phone ?? "");
           setClientFoundByDni(true);
         } else {
-          setClientName("");
-          setPhone("");
           setClientFoundByDni(false);
+          // No alterar nombres ni teléfono si no hay coincidencias
         }
       })
       .catch(() => setClientFoundByDni(false))
@@ -348,6 +350,7 @@ export function OrderForm({
             status: merged.status || "PENDING",
             reference: referenceUrl,
             result: resultUrl,
+            observations: observations.trim() || null,
             category_id: categoryId ? Number(categoryId) : null,
           }),
         });
@@ -732,6 +735,20 @@ export function OrderForm({
                     }}
                   />
                 )}
+              </Grid>
+            )}
+
+            {isEdit && (
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="Observaciones"
+                  multiline
+                  rows={4}
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  placeholder="Observaciones sobre el pedido..."
+                />
               </Grid>
             )}
 
