@@ -37,7 +37,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 
@@ -130,6 +130,15 @@ function ListarPedidosContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
   const [dniFilter, setDniFilter] = useState(initialDni);
+  type DateRangeKey =
+    | "current_month"
+    | "previous_month"
+    | "last_3_months"
+    | "custom";
+  const [dateRangeFilter, setDateRangeFilter] =
+    useState<DateRangeKey>("current_month");
+  const [customDateFrom, setCustomDateFrom] = useState("");
+  const [customDateTo, setCustomDateTo] = useState("");
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuOrder, setMenuOrder] = useState<Order | null>(null);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
@@ -173,7 +182,10 @@ function ListarPedidosContent() {
     }
   };
 
-  const openActionsMenu = (event: React.MouseEvent<HTMLElement>, order: Order) => {
+  const openActionsMenu = (
+    event: React.MouseEvent<HTMLElement>,
+    order: Order,
+  ) => {
     event.preventDefault();
     setMenuAnchor(event.currentTarget);
     setMenuOrder(order);
@@ -198,9 +210,53 @@ function ListarPedidosContent() {
       statusParam &&
       ["PENDING", "COMPLETE", "CANCELLED", "all"].includes(statusParam)
     ) {
-      setStatusFilter(statusParam as "PENDING" | "COMPLETE" | "CANCELLED" | "all");
+      setStatusFilter(
+        statusParam as "PENDING" | "COMPLETE" | "CANCELLED" | "all",
+      );
     }
   }, [searchParams, router]);
+
+  const { fromDate, toDate } = useMemo(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const firstDay = (year: number, month: number) =>
+      `${year}-${pad(month + 1)}-01`;
+    const lastDay = (year: number, month: number) => {
+      const d = new Date(year, month + 1, 0);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    switch (dateRangeFilter) {
+      case "current_month":
+        return {
+          fromDate: firstDay(y, m),
+          toDate: lastDay(y, m),
+        };
+      case "previous_month": {
+        const prev = new Date(y, m - 1, 1);
+        return {
+          fromDate: firstDay(prev.getFullYear(), prev.getMonth()),
+          toDate: lastDay(prev.getFullYear(), prev.getMonth()),
+        };
+      }
+      case "last_3_months": {
+        const from = new Date(today);
+        from.setMonth(from.getMonth() - 3);
+        return {
+          fromDate: `${from.getFullYear()}-${pad(from.getMonth() + 1)}-${pad(from.getDate())}`,
+          toDate: `${y}-${pad(m + 1)}-${pad(today.getDate())}`,
+        };
+      }
+      case "custom":
+        return {
+          fromDate: customDateFrom || "",
+          toDate: customDateTo || "",
+        };
+      default:
+        return { fromDate: "", toDate: "" };
+    }
+  }, [dateRangeFilter, customDateFrom, customDateTo]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -209,6 +265,10 @@ function ListarPedidosContent() {
       const params = new URLSearchParams();
       const dni = dniFilter.replace(/\D/g, "");
       if (dni.length === 8) params.set("dni", dni);
+      if (fromDate && /^\d{4}-\d{2}-\d{2}$/.test(fromDate))
+        params.set("from_date", fromDate);
+      if (toDate && /^\d{4}-\d{2}-\d{2}$/.test(toDate))
+        params.set("to_date", toDate);
       const url = `${API_BASE_URL}/orders${params.toString() ? `?${params}` : ""}`;
       const res = await fetch(url, {
         headers: getAuthHeaders(),
@@ -222,7 +282,7 @@ function ListarPedidosContent() {
     } finally {
       setLoading(false);
     }
-  }, [dniFilter]);
+  }, [dniFilter, fromDate, toDate]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -354,6 +414,60 @@ function ListarPedidosContent() {
                   borderColor: "divider",
                 }}
               >
+                <FormControl
+                  size="small"
+                  sx={{
+                    minWidth: { xs: "100%", sm: 180 },
+                    maxWidth: { xs: "100%", sm: 220 },
+                  }}
+                >
+                  <InputLabel id="date-range-label">Rango de fechas</InputLabel>
+                  <Select
+                    labelId="date-range-label"
+                    value={dateRangeFilter}
+                    label="Rango de fechas"
+                    onChange={(e) =>
+                      setDateRangeFilter(e.target.value as DateRangeKey)
+                    }
+                  >
+                    <MenuItem value="current_month">Mes actual</MenuItem>
+                    <MenuItem value="previous_month">Mes anterior</MenuItem>
+                    <MenuItem value="last_3_months">Últimos 3 meses</MenuItem>
+                    <MenuItem value="custom">Personalizado</MenuItem>
+                  </Select>
+                </FormControl>
+                {dateRangeFilter === "custom" && (
+                  <>
+                    <TextField
+                      size="small"
+                      label="Desde"
+                      type="date"
+                      value={customDateFrom}
+                      onChange={(e) => setCustomDateFrom(e.target.value)}
+                      slotProps={{
+                        htmlInput: { max: customDateTo || undefined },
+                      }}
+                      sx={{
+                        minWidth: { xs: "100%", sm: 140 },
+                        maxWidth: { xs: "100%", sm: 160 },
+                      }}
+                    />
+                    <TextField
+                      size="small"
+                      label="Hasta"
+                      type="date"
+                      value={customDateTo}
+                      onChange={(e) => setCustomDateTo(e.target.value)}
+                      slotProps={{
+                        htmlInput: { min: customDateFrom || undefined },
+                      }}
+                      sx={{
+                        minWidth: { xs: "100%", sm: 140 },
+                        maxWidth: { xs: "100%", sm: 160 },
+                      }}
+                    />
+                  </>
+                )}
                 <FormControl
                   size="small"
                   sx={{
@@ -551,7 +665,10 @@ function ListarPedidosContent() {
                                 color="error"
                                 variant="contained"
                                 startIcon={<CancelIcon />}
-                                disabled={row.status === "CANCELLED"}
+                                disabled={
+                                  row.status === "CANCELLED" ||
+                                  row.status === "COMPLETE"
+                                }
                                 onClick={() => openCancelModal(row)}
                                 aria-label="Cancelar"
                               >
@@ -628,7 +745,12 @@ function ListarPedidosContent() {
         </MenuItem>
       </Menu>
 
-      <Dialog open={completeModalOpen} onClose={closeCompleteModal} maxWidth="sm" fullWidth>
+      <Dialog
+        open={completeModalOpen}
+        onClose={closeCompleteModal}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Completar orden</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
