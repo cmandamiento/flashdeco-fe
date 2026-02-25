@@ -70,17 +70,19 @@ function showBrowserNotification(
   title: string,
   body: string,
   onClick: () => void,
-) {
-  if (typeof window === "undefined" || !("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
+): boolean {
+  if (typeof window === "undefined" || !("Notification" in window))
+    return false;
+  if (Notification.permission !== "granted") return false;
   try {
     const n = new Notification(title, { body });
     n.onclick = () => {
       n.close();
       onClick();
     };
+    return true;
   } catch {
-    // Ignore errors (e.g. in some mobile browsers)
+    return false;
   }
 }
 
@@ -91,6 +93,9 @@ export default function HomePage() {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission | null>(null);
   const [notificationSnackbar, setNotificationSnackbar] = useState(false);
+  const [testNotificationSnackbar, setTestNotificationSnackbar] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -239,7 +244,36 @@ export default function HomePage() {
             </Alert>
           )}
           {notificationPermission === "granted" && (
-            <Alert severity="success" icon={<NotificationsActiveIcon />}>
+            <Alert
+              severity="success"
+              icon={<NotificationsActiveIcon />}
+              action={
+                <Button
+                  type="button"
+                  color="inherit"
+                  size="small"
+                  onClick={() => {
+                    setTestNotificationSnackbar(
+                      "Notificación en 2 segundos. Cambia de pestaña o minimiza para verla.",
+                    );
+                    setTimeout(() => {
+                      const ok = showBrowserNotification(
+                        "Prueba de notificaciones",
+                        "Si ves este mensaje, las notificaciones están funcionando correctamente.",
+                        () => router.push("/listar-pedidos"),
+                      );
+                      setTestNotificationSnackbar(
+                        ok
+                          ? "Notificación enviada. Revisa la bandeja del sistema."
+                          : "No se pudo enviar. Revisa el permiso del navegador.",
+                      );
+                    }, 2000);
+                  }}
+                >
+                  Probar notificación
+                </Button>
+              }
+            >
               Notificaciones activadas. Te avisaremos de eventos próximos.
             </Alert>
           )}
@@ -366,6 +400,13 @@ export default function HomePage() {
         onClose={() => setNotificationSnackbar(false)}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         message="Notificaciones activadas. Recibirás avisos de eventos próximos."
+      />
+      <Snackbar
+        open={!!testNotificationSnackbar}
+        autoHideDuration={5000}
+        onClose={() => setTestNotificationSnackbar(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        message={testNotificationSnackbar}
       />
     </Box>
   );
