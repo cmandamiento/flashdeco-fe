@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardActionArea,
   CardContent,
@@ -13,11 +15,14 @@ import {
   ListItemText,
   MenuItem,
   Select,
+  Snackbar,
   Typography,
 } from "@mui/material";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import NotificationsOffIcon from "@mui/icons-material/NotificationsOff";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, removeToken } from "@/lib/auth";
 import { NAV_ACTIONS, NAV_ICONS_LARGE, type NavAction } from "@/lib/navActions";
@@ -29,6 +34,18 @@ type Order = {
   status: string;
   category: { id: number; name: string; description: string | null } | null;
 };
+
+function parseOrderDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function daysFromToday(orderDate: Date, today: Date): number {
+  const diff = orderDate.getTime() - today.getTime();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+}
 
 const DAYS_OPTIONS = [
   { value: 7, label: "7 días" },
@@ -47,14 +64,57 @@ function formatDate(dateStr: string) {
   });
 }
 
+const NOTIFICATION_SHOWN_KEY = "decorapp_event_notification_shown";
+
+function showBrowserNotification(
+  title: string,
+  body: string,
+  onClick: () => void,
+) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const n = new Notification(title, { body });
+    n.onclick = () => {
+      n.close();
+      onClick();
+    };
+  } catch {
+    // Ignore errors (e.g. in some mobile browsers)
+  }
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [daysFilter, setDaysFilter] = useState<7 | 15 | 30>(7);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission | null>(null);
+  const [notificationSnackbar, setNotificationSnackbar] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    const perm = Notification.permission;
+    queueMicrotask(() => setNotificationPermission(perm));
+  }, []);
+
+  const requestNotificationPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const perm = await Notification.requestPermission();
+      setNotificationPermission(perm);
+      if (perm === "granted") setNotificationSnackbar(true);
+    } catch {
+      setNotificationPermission("denied");
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE_URL}/orders`, { headers: getAuthHeaders(), credentials: "omit" })
+    fetch(`${API_BASE_URL}/orders`, {
+      headers: getAuthHeaders(),
+      credentials: "omit",
+    })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (!cancelled) setOrders(Array.isArray(data) ? data : []);
@@ -71,6 +131,61 @@ export default function HomePage() {
   today.setHours(0, 0, 0, 0);
   const endDate = new Date(today);
   endDate.setDate(endDate.getDate() + daysFilter);
+
+  const eventAlerts = useMemo(() => {
+    const todayList: Order[] = [];
+    const tomorrowList: Order[] = [];
+    const in2DaysList: Order[] = [];
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    orders.forEach((order) => {
+      if (order.status !== "PENDING") return;
+      const orderDate = parseOrderDate(order.date);
+      const days = daysFromToday(orderDate, now);
+      if (days === 0) todayList.push(order);
+      else if (days === 1) tomorrowList.push(order);
+      else if (days === 2) in2DaysList.push(order);
+    });
+    return { todayList, tomorrowList, in2DaysList };
+  }, [orders]);
+
+  const hasEventAlerts =
+    eventAlerts.todayList.length > 0 ||
+    eventAlerts.tomorrowList.length > 0 ||
+    eventAlerts.in2DaysList.length > 0;
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !hasEventAlerts ||
+      notificationPermission !== "granted"
+    )
+      return;
+    const todayKey = new Date().toDateString();
+    const shown = localStorage.getItem(NOTIFICATION_SHOWN_KEY);
+    if (shown === todayKey) return;
+    const parts: string[] = [];
+    if (eventAlerts.todayList.length > 0)
+      parts.push(`Hoy: ${eventAlerts.todayList.length} evento(s)`);
+    if (eventAlerts.tomorrowList.length > 0)
+      parts.push(`Mañana: ${eventAlerts.tomorrowList.length} evento(s)`);
+    if (eventAlerts.in2DaysList.length > 0)
+      parts.push(`En 2 días: ${eventAlerts.in2DaysList.length} evento(s)`);
+    const title = "Recordatorio de eventos";
+    const body = parts.join(". ");
+    showBrowserNotification(title, body, () => {
+      window.focus();
+      router.push("/listar-pedidos");
+    });
+    localStorage.setItem(NOTIFICATION_SHOWN_KEY, todayKey);
+  }, [
+    hasEventAlerts,
+    notificationPermission,
+    eventAlerts.todayList.length,
+    eventAlerts.tomorrowList.length,
+    eventAlerts.in2DaysList.length,
+    router,
+  ]);
 
   const upcomingOrders = orders
     .filter((order) => {
@@ -98,8 +213,45 @@ export default function HomePage() {
     }
   };
 
+  const supportsNotifications =
+    typeof window !== "undefined" && "Notification" in window;
+
   return (
     <Box sx={{ px: 3, maxWidth: 1200, mx: "auto" }}>
+      {supportsNotifications && (
+        <Box sx={{ mt: 3, mb: 2 }}>
+          {notificationPermission === "default" && (
+            <Alert
+              severity="info"
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  startIcon={<NotificationsActiveIcon />}
+                  onClick={requestNotificationPermission}
+                >
+                  Activar notificaciones
+                </Button>
+              }
+            >
+              Recibe avisos en tu dispositivo cuando tengas eventos próximos
+              (hoy, mañana o en 2 días).
+            </Alert>
+          )}
+          {notificationPermission === "granted" && (
+            <Alert severity="success" icon={<NotificationsActiveIcon />}>
+              Notificaciones activadas. Te avisaremos de eventos próximos.
+            </Alert>
+          )}
+          {notificationPermission === "denied" && (
+            <Alert severity="warning" icon={<NotificationsOffIcon />}>
+              Las notificaciones están bloqueadas. Actívalas en la configuración
+              del navegador para recibir avisos.
+            </Alert>
+          )}
+        </Box>
+      )}
+
       <Box sx={{ mt: 3, mb: 5 }}>
         <Box
           sx={{
@@ -207,6 +359,14 @@ export default function HomePage() {
           </Grid>
         ))}
       </Grid>
+
+      <Snackbar
+        open={notificationSnackbar}
+        autoHideDuration={4000}
+        onClose={() => setNotificationSnackbar(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        message="Notificaciones activadas. Recibirás avisos de eventos próximos."
+      />
     </Box>
   );
 }
