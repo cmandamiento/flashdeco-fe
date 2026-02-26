@@ -75,13 +75,21 @@ function showBrowserNotification(
     return false;
   if (Notification.permission !== "granted") return false;
   try {
-    const n = new Notification(title, { body });
+    const n = new Notification(title, {
+      body,
+      icon: "/favicon.ico",
+      tag: "decorapp-test",
+      requireInteraction: false,
+    });
     n.onclick = () => {
       n.close();
       onClick();
     };
     return true;
-  } catch {
+  } catch (err) {
+    if (typeof console !== "undefined" && console.error) {
+      console.error("Notification error:", err);
+    }
     return false;
   }
 }
@@ -241,40 +249,6 @@ export default function HomePage() {
             >
               Recibe avisos en tu dispositivo cuando tengas eventos próximos
               (hoy, mañana o en 2 días).
-            </Alert>
-          )}
-          {notificationPermission === "granted" && (
-            <Alert
-              severity="success"
-              icon={<NotificationsActiveIcon />}
-              action={
-                <Button
-                  type="button"
-                  color="inherit"
-                  size="small"
-                  onClick={() => {
-                    setTestNotificationSnackbar(
-                      "Notificación en 2 segundos. Cambia de pestaña o minimiza para verla.",
-                    );
-                    setTimeout(() => {
-                      const ok = showBrowserNotification(
-                        "Prueba de notificaciones",
-                        "Si ves este mensaje, las notificaciones están funcionando correctamente.",
-                        () => router.push("/listar-pedidos"),
-                      );
-                      setTestNotificationSnackbar(
-                        ok
-                          ? "Notificación enviada. Revisa la bandeja del sistema."
-                          : "No se pudo enviar. Revisa el permiso del navegador.",
-                      );
-                    }, 2000);
-                  }}
-                >
-                  Probar notificación
-                </Button>
-              }
-            >
-              Notificaciones activadas. Te avisaremos de eventos próximos.
             </Alert>
           )}
           {notificationPermission === "denied" && (
