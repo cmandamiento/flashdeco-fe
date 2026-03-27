@@ -17,9 +17,11 @@ import PersonIcon from "@mui/icons-material/Person";
 import PhoneIcon from "@mui/icons-material/Phone";
 import CategoryIcon from "@mui/icons-material/Category";
 import ImageIcon from "@mui/icons-material/Image";
+import PrintIcon from "@mui/icons-material/Print";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { jsPDF } from "jspdf";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 
@@ -130,16 +132,236 @@ export default function VerPedidoPage() {
     window.open(whatsappUrl, "_blank");
   };
 
+  const formatDateForPdf = (dateStr: string) => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    if (!year || !month || !day) return dateStr;
+    return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+  };
+
+  const sanitizePhone = (phoneNumber: string | null) => {
+    return (phoneNumber ?? "").replace(/\D/g, "");
+  };
+
+  const getImageAsDataUrl = (
+    url: string,
+    outputFormat: "image/jpeg" | "image/png" = "image/jpeg",
+  ) =>
+    new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      const isRemote = /^https?:\/\//i.test(url);
+      if (isRemote) {
+        img.crossOrigin = "anonymous";
+      }
+      const imageSrc = isRemote
+        ? `${API_BASE_URL}/image-proxy?url=${encodeURIComponent(url)}`
+        : url;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("No se pudo procesar la imagen referencial."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        if (outputFormat === "image/png") {
+          resolve(canvas.toDataURL("image/png"));
+          return;
+        }
+        resolve(canvas.toDataURL("image/jpeg", 0.92));
+      };
+      img.onerror = () =>
+        reject(
+          new Error("No se pudo cargar la imagen referencial para el PDF."),
+        );
+      img.src = imageSrc;
+    });
+
+  const handlePrintQuote = async () => {
+    if (!order) return;
+    try {
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const leftX = 10;
+      const tableWidth = pageWidth - leftX * 2;
+      let y = 10;
+      const logoUrl = "/logo-flash.png";
+
+      const rowH = 10;
+      const valueXPadding = 1.5;
+      const rightColW = 55;
+      const leftColW = tableWidth - rightColW;
+      const halfLeft = leftColW / 2;
+      const labelCol = 40;
+
+      const drawCell = (
+        x: number,
+        top: number,
+        w: number,
+        h: number,
+        text: string,
+        bold = false,
+        align: "left" | "center" | "right" = "left",
+      ) => {
+        pdf.rect(x, top, w, h);
+        pdf.setFont("helvetica", bold ? "bold" : "normal");
+        const textX =
+          align === "left"
+            ? x + valueXPadding
+            : align === "center"
+              ? x + w / 2
+              : x + w - valueXPadding;
+        pdf.text(text || "", textX, top + h / 2 + 1.5, {
+          align:
+            align === "left" ? "left" : align === "center" ? "center" : "right",
+        });
+      };
+
+      // Header
+      const logoWidth = 38;
+      const logoHeight = 16;
+      const headerRowH = Math.max(rowH + 2, logoHeight + 6);
+      drawCell(leftX, y, leftColW, headerRowH, "Cotización", true, "left");
+      drawCell(leftX + leftColW, y, rightColW, headerRowH, "", false);
+      try {
+        const logoDataUrl = await getImageAsDataUrl(logoUrl, "image/png");
+        const logoX = leftX + tableWidth - logoWidth - 2;
+        const logoY = y + (headerRowH - logoHeight) / 2;
+        pdf.addImage(logoDataUrl, "PNG", logoX, logoY, logoWidth, logoHeight);
+      } catch {
+        // El PDF se genera aun si no se puede cargar el logo.
+      }
+      y += headerRowH;
+
+      // Cliente
+      drawCell(leftX, y, labelCol, rowH, "Cliente", true);
+      drawCell(
+        leftX + labelCol,
+        y,
+        tableWidth - labelCol,
+        rowH,
+        order.clientName,
+      );
+      y += rowH;
+
+      // Fecha + Telefono
+      const dateLabelW = 40;
+      const phoneLabelW = 35;
+      const dateValueExtraW = 12;
+      const phoneStartX = leftX + halfLeft + dateValueExtraW;
+      drawCell(leftX, y, dateLabelW, rowH, "Fecha", true);
+      drawCell(
+        leftX + dateLabelW,
+        y,
+        phoneStartX - (leftX + dateLabelW),
+        rowH,
+        formatDateForPdf(order.date),
+        false,
+        "center",
+      );
+      drawCell(phoneStartX, y, phoneLabelW, rowH, "Teléfono", true);
+      drawCell(
+        phoneStartX + phoneLabelW,
+        y,
+        leftX + tableWidth - (phoneStartX + phoneLabelW),
+        rowH,
+        sanitizePhone(order.phone) || "-",
+        false,
+        "right",
+      );
+      y += rowH;
+
+      // Direccion
+      drawCell(leftX, y, labelCol, rowH, "Dirección", true);
+      drawCell(leftX + labelCol, y, tableWidth - labelCol, rowH, order.address);
+      y += rowH;
+
+      // Imagen referencial titulo
+      drawCell(leftX, y, tableWidth, rowH, "Imagen Referencial", true);
+      y += rowH;
+
+      // Imagen referencial area
+      const imgAreaH = 120;
+      drawCell(leftX, y, tableWidth, imgAreaH, "", false);
+      if (order.reference) {
+        const dataUrl = await getImageAsDataUrl(order.reference);
+        const imgProps = pdf.getImageProperties(dataUrl);
+        const maxW = tableWidth - 10;
+        const maxH = imgAreaH - 8;
+        const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
+        const imgW = imgProps.width * ratio;
+        const imgH = imgProps.height * ratio;
+        const imgX = leftX + (tableWidth - imgW) / 2;
+        const imgY = y + (imgAreaH - imgH) / 2;
+        pdf.addImage(dataUrl, "JPEG", imgX, imgY, imgW, imgH);
+      }
+      y += imgAreaH;
+
+      // Totales
+      const moneyLabelW = tableWidth - 55;
+      const moneyValueW = 55;
+      drawCell(leftX, y, moneyLabelW, rowH, "Total", false, "right");
+      drawCell(
+        leftX + moneyLabelW,
+        y,
+        moneyValueW,
+        rowH,
+        `S/. ${order.price.toFixed(2)}`,
+        false,
+        "right",
+      );
+      y += rowH;
+      drawCell(leftX, y, moneyLabelW, rowH, "A cuenta", false, "right");
+      drawCell(
+        leftX + moneyLabelW,
+        y,
+        moneyValueW,
+        rowH,
+        `S/. ${(order.deposit ?? 0).toFixed(2)}`,
+        false,
+        "right",
+      );
+      y += rowH;
+      drawCell(leftX, y, moneyLabelW, rowH, "Pendiente", false, "right");
+      drawCell(
+        leftX + moneyLabelW,
+        y,
+        moneyValueW,
+        rowH,
+        `S/. ${(order.balance ?? 0).toFixed(2)}`,
+        false,
+        "right",
+      );
+
+      pdf.save(`cotizacion-pedido-${order.id}.pdf`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo generar el PDF.");
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/listar-pedidos"
-        startIcon={<ArrowBackIcon />}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
         sx={{ mb: 3 }}
       >
-        Volver a pedidos
-      </Button>
+        <Button
+          component={Link}
+          href="/listar-pedidos"
+          startIcon={<ArrowBackIcon />}
+        >
+          Volver a pedidos
+        </Button>
+        <Button
+          variant="contained"
+          startIcon={<PrintIcon />}
+          onClick={handlePrintQuote}
+        >
+          Imprimir cotización
+        </Button>
+      </Stack>
 
       <Paper
         elevation={3}
