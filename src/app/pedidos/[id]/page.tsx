@@ -27,6 +27,7 @@ import { getAuthHeaders } from "@/lib/auth";
 
 type Order = {
   id: number;
+  client_dni: string | null;
   clientName: string;
   phone: string | null;
   date: string;
@@ -235,6 +236,17 @@ export default function VerPedidoPage() {
       y += headerRowH;
 
       // Cliente
+      drawCell(leftX, y, labelCol, rowH, "DNI", true);
+      drawCell(
+        leftX + labelCol,
+        y,
+        tableWidth - labelCol,
+        rowH,
+        order.client_dni ?? "-",
+      );
+      y += rowH;
+
+      // Cliente
       drawCell(leftX, y, labelCol, rowH, "Cliente", true);
       drawCell(
         leftX + labelCol,
@@ -333,12 +345,22 @@ export default function VerPedidoPage() {
         false,
         "right",
       );
+      y += rowH + 8;
+
+      const disclaimer =
+        "El adelanto confirma tu reserva y permite iniciar la preparación de tu decoración. Por ello, no es reembolsable si la cancelación se realiza dentro de las 96 horas o 4 días previos al evento.";
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(10);
+      const disclaimerLines = pdf.splitTextToSize(disclaimer, tableWidth);
+      pdf.text(disclaimerLines, leftX, y);
 
       pdf.save(`cotizacion-pedido-${order.id}.pdf`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo generar el PDF.");
     }
   };
+
+  console.log(order);
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: "auto" }}>
