@@ -19,6 +19,7 @@ import {
   MenuItem,
   Select,
   Snackbar,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -35,9 +36,20 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import CancelIcon from "@mui/icons-material/Cancel";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import dayjs, { type Dayjs } from "dayjs";
+import "dayjs/locale/es";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 
@@ -64,7 +76,75 @@ type Order = {
   client_dni?: string | null;
 };
 
-type OrderBy = "clientName" | "date" | "status" | "category";
+type OrderBy = "clientName" | "date" | "status" | "category" | "price";
+
+type DateRangeKey =
+  | "current_month"
+  | "previous_month"
+  | "last_3_months"
+  | "custom";
+
+const DEFAULT_STATUS: "PENDING" | "COMPLETE" | "CANCELLED" | "all" = "PENDING";
+const DEFAULT_RANGE: DateRangeKey = "current_month";
+const DEFAULT_SORT: OrderBy = "date";
+const DEFAULT_DIR: "asc" | "desc" = "desc";
+
+function parseStatus(
+  sp: URLSearchParams,
+): "PENDING" | "COMPLETE" | "CANCELLED" | "all" {
+  const s = sp.get("status");
+  if (s && ["PENDING", "COMPLETE", "CANCELLED", "all"].includes(s)) {
+    return s as "PENDING" | "COMPLETE" | "CANCELLED" | "all";
+  }
+  return DEFAULT_STATUS;
+}
+
+function parseRange(sp: URLSearchParams): DateRangeKey {
+  const r = sp.get("range");
+  if (
+    r &&
+    ["current_month", "previous_month", "last_3_months", "custom"].includes(r)
+  ) {
+    return r as DateRangeKey;
+  }
+  return DEFAULT_RANGE;
+}
+
+function parseCategory(sp: URLSearchParams): number | "all" {
+  const c = sp.get("category");
+  if (!c || c === "all") return "all";
+  const n = Number(c);
+  return Number.isFinite(n) ? n : "all";
+}
+
+function parseOrderBy(sp: URLSearchParams): OrderBy {
+  const s = sp.get("sort");
+  if (
+    s &&
+    ["clientName", "date", "status", "category", "price"].includes(s)
+  ) {
+    return s as OrderBy;
+  }
+  return DEFAULT_SORT;
+}
+
+function parseOrderDir(sp: URLSearchParams): "asc" | "desc" {
+  const d = sp.get("dir");
+  if (d === "asc" || d === "desc") return d;
+  return DEFAULT_DIR;
+}
+
+function patchParams(
+  base: URLSearchParams,
+  patch: Record<string, string | null | undefined>,
+): URLSearchParams {
+  const p = new URLSearchParams(base.toString());
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null || v === undefined || v === "") p.delete(k);
+    else p.set(k, v);
+  }
+  return p;
+}
 
 function StatusCell({ status }: { status: Order["status"] }) {
   const config = {
@@ -90,6 +170,9 @@ function StatusCell({ status }: { status: Order["status"] }) {
 
 function getComparator(orderBy: OrderBy): (a: Order, b: Order) => number {
   return (a, b) => {
+    if (orderBy === "price") {
+      return (a.price ?? 0) - (b.price ?? 0);
+    }
     const aVal = orderBy === "category" ? a.category?.name : a[orderBy];
     const bVal = orderBy === "category" ? b.category?.name : b[orderBy];
     if (aVal === bVal) return 0;
@@ -100,45 +183,68 @@ function getComparator(orderBy: OrderBy): (a: Order, b: Order) => number {
   };
 }
 
+function formatPrice(value: number) {
+  return `S/. ${(value ?? 0).toLocaleString("es-PE", {
+    minimumFractionDigits: 2,
+  })}`;
+}
+
+function parseYmdToDayjs(ymd: string): Dayjs | null {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  return dayjs(new Date(y, m - 1, d));
+}
+
 function ListarPedidosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const initialDni = (() => {
-    const dni = searchParams.get("dni") ?? "";
-    return dni && /^\d{8}$/.test(dni) ? dni : "";
-  })();
-  const initialStatus = (() => {
-    const s = searchParams.get("status");
-    return s && ["PENDING", "COMPLETE", "CANCELLED", "all"].includes(s)
-      ? (s as "PENDING" | "COMPLETE" | "CANCELLED" | "all")
-      : "PENDING";
-  })();
+  const statusFilter = useMemo(() => parseStatus(searchParams), [searchParams]);
+  const dateRangeFilter = useMemo(() => parseRange(searchParams), [searchParams]);
+  const customDateFrom = searchParams.get("from") ?? "";
+  const customDateTo = searchParams.get("to") ?? "";
+  const categoryFilter = useMemo(
+    () => parseCategory(searchParams),
+    [searchParams],
+  );
+  const orderBy = useMemo(() => parseOrderBy(searchParams), [searchParams]);
+  const orderDir = useMemo(() => parseOrderDir(searchParams), [searchParams]);
+
+  const replaceQuery = useCallback(
+    (patch: Record<string, string | null | undefined>) => {
+      const p = patchParams(searchParams, patch);
+      const qs = p.toString();
+      router.replace(qs ? `/listar-pedidos?${qs}` : "/listar-pedidos", {
+        scroll: false,
+      });
+    },
+    [router, searchParams],
+  );
+
+  const [dniInput, setDniInput] = useState(() =>
+    (searchParams.get("dni") ?? "").replace(/\D/g, "").slice(0, 8),
+  );
+  const dniDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setDniInput((searchParams.get("dni") ?? "").replace(/\D/g, "").slice(0, 8));
+  }, [searchParams]);
+
+  useEffect(
+    () => () => {
+      if (dniDebounceRef.current) clearTimeout(dniDebounceRef.current);
+    },
+    [],
+  );
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [orderBy, setOrderBy] = useState<OrderBy>("date");
-  const [orderDir, setOrderDir] = useState<"asc" | "desc">("desc");
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [successSnackbarOpen, setSuccessSnackbarOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<
-    "PENDING" | "COMPLETE" | "CANCELLED" | "all"
-  >(initialStatus);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
-  const [dniFilter, setDniFilter] = useState(initialDni);
-  type DateRangeKey =
-    | "current_month"
-    | "previous_month"
-    | "last_3_months"
-    | "custom";
-  const [dateRangeFilter, setDateRangeFilter] =
-    useState<DateRangeKey>("current_month");
-  const [customDateFrom, setCustomDateFrom] = useState("");
-  const [customDateTo, setCustomDateTo] = useState("");
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuOrder, setMenuOrder] = useState<Order | null>(null);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
@@ -197,23 +303,13 @@ function ListarPedidosContent() {
   };
 
   useEffect(() => {
-    if (searchParams.get("created") === "true") {
-      setSuccessSnackbarOpen(true);
-      router.replace("/listar-pedidos");
-    }
-    const dniParam = searchParams.get("dni") ?? "";
-    if (dniParam && /^\d{8}$/.test(dniParam)) {
-      setDniFilter(dniParam);
-    }
-    const statusParam = searchParams.get("status");
-    if (
-      statusParam &&
-      ["PENDING", "COMPLETE", "CANCELLED", "all"].includes(statusParam)
-    ) {
-      setStatusFilter(
-        statusParam as "PENDING" | "COMPLETE" | "CANCELLED" | "all",
-      );
-    }
+    if (searchParams.get("created") !== "true") return;
+    setSuccessSnackbarOpen(true);
+    const p = patchParams(searchParams, { created: null });
+    const qs = p.toString();
+    router.replace(qs ? `/listar-pedidos?${qs}` : "/listar-pedidos", {
+      scroll: false,
+    });
   }, [searchParams, router]);
 
   const { fromDate, toDate } = useMemo(() => {
@@ -263,7 +359,7 @@ function ListarPedidosContent() {
     setError("");
     try {
       const params = new URLSearchParams();
-      const dni = dniFilter.replace(/\D/g, "");
+      const dni = dniInput.replace(/\D/g, "");
       if (dni.length === 8) params.set("dni", dni);
       if (fromDate && /^\d{4}-\d{2}-\d{2}$/.test(fromDate))
         params.set("from_date", fromDate);
@@ -282,7 +378,7 @@ function ListarPedidosContent() {
     } finally {
       setLoading(false);
     }
-  }, [dniFilter, fromDate, toDate]);
+  }, [dniInput, fromDate, toDate]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -308,9 +404,21 @@ function ListarPedidosContent() {
   }, [fetchCategories]);
 
   const handleSort = (field: OrderBy) => {
-    const isAsc = orderBy === field && orderDir === "asc";
-    setOrderDir(isAsc ? "desc" : "asc");
-    setOrderBy(field);
+    if (orderBy !== field) {
+      if (field === DEFAULT_SORT) {
+        replaceQuery({ sort: null, dir: null });
+      } else {
+        replaceQuery({ sort: field, dir: "desc" });
+      }
+      return;
+    }
+    const isAsc = orderDir === "asc";
+    const nextDir: "asc" | "desc" = isAsc ? "desc" : "asc";
+    if (field === DEFAULT_SORT && nextDir === DEFAULT_DIR) {
+      replaceQuery({ sort: null, dir: null });
+    } else {
+      replaceQuery({ sort: field, dir: nextDir });
+    }
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -426,9 +534,18 @@ function ListarPedidosContent() {
                     labelId="date-range-label"
                     value={dateRangeFilter}
                     label="Rango de fechas"
-                    onChange={(e) =>
-                      setDateRangeFilter(e.target.value as DateRangeKey)
-                    }
+                    onChange={(e) => {
+                      const v = e.target.value as DateRangeKey;
+                      if (v === "custom") {
+                        replaceQuery({ range: "custom" });
+                      } else {
+                        replaceQuery({
+                          range: v === DEFAULT_RANGE ? null : v,
+                          from: null,
+                          to: null,
+                        });
+                      }
+                    }}
                   >
                     <MenuItem value="current_month">Mes actual</MenuItem>
                     <MenuItem value="previous_month">Mes anterior</MenuItem>
@@ -437,36 +554,88 @@ function ListarPedidosContent() {
                   </Select>
                 </FormControl>
                 {dateRangeFilter === "custom" && (
-                  <>
-                    <TextField
-                      size="small"
-                      label="Desde"
-                      type="date"
-                      value={customDateFrom}
-                      onChange={(e) => setCustomDateFrom(e.target.value)}
-                      slotProps={{
-                        htmlInput: { max: customDateTo || undefined },
-                      }}
+                  <LocalizationProvider
+                    dateAdapter={AdapterDayjs}
+                    adapterLocale="es"
+                  >
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      alignItems={{ xs: "stretch", sm: "center" }}
                       sx={{
-                        minWidth: { xs: "100%", sm: 140 },
-                        maxWidth: { xs: "100%", sm: 160 },
+                        minWidth: { xs: "100%", sm: "auto" },
+                        p: 1,
+                        border: 1,
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        bgcolor: "action.hover",
                       }}
-                    />
-                    <TextField
-                      size="small"
-                      label="Hasta"
-                      type="date"
-                      value={customDateTo}
-                      onChange={(e) => setCustomDateTo(e.target.value)}
-                      slotProps={{
-                        htmlInput: { min: customDateFrom || undefined },
-                      }}
-                      sx={{
-                        minWidth: { xs: "100%", sm: 140 },
-                        maxWidth: { xs: "100%", sm: 160 },
-                      }}
-                    />
-                  </>
+                    >
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          px: 0.5,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                          width: { xs: "100%", sm: "auto" },
+                        }}
+                      >
+                        Período
+                      </Typography>
+                      <DatePicker
+                        label="Desde"
+                        value={parseYmdToDayjs(customDateFrom)}
+                        onChange={(v) => {
+                          replaceQuery({
+                            from:
+                              v?.isValid() === true
+                                ? v.format("YYYY-MM-DD")
+                                : null,
+                            range: "custom",
+                          });
+                        }}
+                        maxDate={
+                          parseYmdToDayjs(customDateTo) ?? undefined
+                        }
+                        slotProps={{
+                          textField: {
+                            size: "small",
+                            sx: { minWidth: { xs: "100%", sm: 150 } },
+                          },
+                        }}
+                      />
+                      <Typography
+                        color="text.secondary"
+                        sx={{ display: { xs: "none", sm: "block" }, px: 0.5 }}
+                      >
+                        –
+                      </Typography>
+                      <DatePicker
+                        label="Hasta"
+                        value={parseYmdToDayjs(customDateTo)}
+                        onChange={(v) => {
+                          replaceQuery({
+                            to:
+                              v?.isValid() === true
+                                ? v.format("YYYY-MM-DD")
+                                : null,
+                            range: "custom",
+                          });
+                        }}
+                        minDate={
+                          parseYmdToDayjs(customDateFrom) ?? undefined
+                        }
+                        slotProps={{
+                          textField: {
+                            size: "small",
+                            sx: { minWidth: { xs: "100%", sm: 150 } },
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </LocalizationProvider>
                 )}
                 <FormControl
                   size="small"
@@ -480,15 +649,16 @@ function ListarPedidosContent() {
                     labelId="status-filter-label"
                     value={statusFilter}
                     label="Estado"
-                    onChange={(e) =>
-                      setStatusFilter(
-                        e.target.value as
-                          | "PENDING"
-                          | "COMPLETE"
-                          | "CANCELLED"
-                          | "all",
-                      )
-                    }
+                    onChange={(e) => {
+                      const v = e.target.value as
+                        | "PENDING"
+                        | "COMPLETE"
+                        | "CANCELLED"
+                        | "all";
+                      replaceQuery({
+                        status: v === DEFAULT_STATUS ? null : v,
+                      });
+                    }}
                   >
                     <MenuItem value="PENDING">Pendientes</MenuItem>
                     <MenuItem value="COMPLETE">Completados</MenuItem>
@@ -500,10 +670,15 @@ function ListarPedidosContent() {
                   size="small"
                   label="DNI cliente"
                   placeholder="8 dígitos"
-                  value={dniFilter}
-                  onChange={(e) =>
-                    setDniFilter(e.target.value.replace(/\D/g, "").slice(0, 8))
-                  }
+                  value={dniInput}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 8);
+                    setDniInput(v);
+                    if (dniDebounceRef.current) clearTimeout(dniDebounceRef.current);
+                    dniDebounceRef.current = setTimeout(() => {
+                      replaceQuery({ dni: v.length > 0 ? v : null });
+                    }, 400);
+                  }}
                   sx={{
                     minWidth: { xs: "100%", sm: 140 },
                     maxWidth: { xs: "100%", sm: 160 },
@@ -522,13 +697,13 @@ function ListarPedidosContent() {
                     labelId="category-filter-label"
                     value={categoryFilter}
                     label="Temática"
-                    onChange={(e) =>
-                      setCategoryFilter(
-                        e.target.value === "all"
-                          ? "all"
-                          : Number(e.target.value),
-                      )
-                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      replaceQuery({
+                        category:
+                          raw === "all" ? null : String(Number(raw)),
+                      });
+                    }}
                   >
                     <MenuItem value="all">Todas</MenuItem>
                     {categories.map((cat) => (
@@ -581,13 +756,22 @@ function ListarPedidosContent() {
                           Temática
                         </TableSortLabel>
                       </TableCell>
+                      <TableCell align="right">
+                        <TableSortLabel
+                          active={orderBy === "price"}
+                          direction={orderBy === "price" ? orderDir : "asc"}
+                          onClick={() => handleSort("price")}
+                        >
+                          Precio total
+                        </TableSortLabel>
+                      </TableCell>
                       <TableCell align="right">Acción</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {sortedOrders.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                           <Typography color="text.secondary">
                             {statusFilter === "all" && categoryFilter === "all"
                               ? "No hay pedidos registrados"
@@ -604,6 +788,9 @@ function ListarPedidosContent() {
                             <StatusCell status={row.status} />
                           </TableCell>
                           <TableCell>{row.category?.name ?? "—"}</TableCell>
+                          <TableCell align="right">
+                            {formatPrice(row.price)}
+                          </TableCell>
                           <TableCell align="right">
                             <Box
                               sx={{

@@ -19,7 +19,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 import ImageIcon from "@mui/icons-material/Image";
 import PrintIcon from "@mui/icons-material/Print";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 import { API_BASE_URL } from "@/lib/config";
@@ -44,6 +44,7 @@ type Order = {
 
 export default function VerPedidoPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -360,8 +361,6 @@ export default function VerPedidoPage() {
     }
   };
 
-  console.log(order);
-
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: "auto" }}>
       <Stack
@@ -370,8 +369,13 @@ export default function VerPedidoPage() {
         sx={{ mb: 3 }}
       >
         <Button
-          component={Link}
-          href="/listar-pedidos"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/listar-pedidos");
+            }
+          }}
           startIcon={<ArrowBackIcon />}
         >
           Volver a pedidos
