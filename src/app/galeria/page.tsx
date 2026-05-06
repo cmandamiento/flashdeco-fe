@@ -29,6 +29,7 @@ type Order = {
   date: string;
   price: number;
   result: string | null;
+  status: string;
 };
 
 function formatPrice(value: number) {
@@ -182,13 +183,19 @@ export default function GaleriaPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/orders`, {
-        headers: getAuthHeaders(),
-        credentials: "omit",
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/orders?status=COMPLETE`,
+        {
+          headers: getAuthHeaders(),
+          credentials: "omit",
+        },
+      );
       if (!res.ok) throw new Error("No se pudieron cargar los pedidos");
       const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setOrders(
+        list.filter((o: Order) => o.status === "COMPLETE"),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de conexión");
       setOrders([]);
@@ -250,7 +257,8 @@ export default function GaleriaPage() {
         Galería
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Imágenes finales de las decoraciones (resultado). Doce por página.
+        Solo pedidos finalizados (completados). Imágenes finales de las
+        decoraciones. Doce por página.
       </Typography>
 
       {loading ? (
@@ -261,7 +269,7 @@ export default function GaleriaPage() {
         <Typography color="error">{error}</Typography>
       ) : sortedOrders.length === 0 ? (
         <Typography color="text.secondary">
-          No hay pedidos para mostrar.
+          No hay pedidos finalizados para mostrar.
         </Typography>
       ) : (
         <>
