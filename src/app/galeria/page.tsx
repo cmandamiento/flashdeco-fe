@@ -183,19 +183,14 @@ export default function GaleriaPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/orders?status=COMPLETE`,
-        {
-          headers: getAuthHeaders(),
-          credentials: "omit",
-        },
-      );
+      const res = await fetch(`${API_BASE_URL}/orders?status=COMPLETE`, {
+        headers: getAuthHeaders(),
+        credentials: "omit",
+      });
       if (!res.ok) throw new Error("No se pudieron cargar los pedidos");
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
-      setOrders(
-        list.filter((o: Order) => o.status === "COMPLETE"),
-      );
+      setOrders(list.filter((o: Order) => o.status === "COMPLETE"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de conexión");
       setOrders([]);
@@ -257,8 +252,7 @@ export default function GaleriaPage() {
         Galería
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Solo pedidos finalizados (completados). Imágenes finales de las
-        decoraciones. Doce por página.
+        Solo pedidos finalizados (completados).
       </Typography>
 
       {loading ? (
