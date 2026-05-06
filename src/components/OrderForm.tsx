@@ -16,14 +16,19 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Drawer,
   FormControl,
   FormControlLabel,
+  FormLabel,
   IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
+  Stack,
   TextField,
   Typography,
 } from "@mui/material";
@@ -103,6 +108,62 @@ const defaultInitial: OrderFormInitialValues = {
   registerPastEvent: false,
 };
 
+type QuoteCalcLine = { label: string; amount: number };
+
+function formatMoneyEs(value: number) {
+  return value.toLocaleString("es-PE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function computeQuoteEstimate(params: {
+  screens: number;
+  foamNuevo: boolean;
+  foamPersonalizado: boolean;
+  incluyeAlquiler: boolean;
+  montoAlquiler: number;
+  fueraHuacho: boolean;
+}): {
+  lines: QuoteCalcLine[];
+  subtotal: number;
+  porcentaje15: number;
+  total: number;
+} {
+  const lines: QuoteCalcLine[] = [];
+  const pantallas = Math.max(0, Math.floor(Number.isFinite(params.screens) ? params.screens : 0));
+  const montoPantallas = pantallas * 100;
+  lines.push({
+    label: `Pantallas (${pantallas} × S/. 100)`,
+    amount: montoPantallas,
+  });
+  let sub = montoPantallas;
+
+  if (params.foamNuevo) {
+    lines.push({ label: "Foam nuevo", amount: 25 });
+    sub += 25;
+  }
+  if (params.foamPersonalizado) {
+    lines.push({ label: "Foam personalizado", amount: 30 });
+    sub += 30;
+  }
+  if (params.incluyeAlquiler) {
+    lines.push({
+      label: "Alquiler mobiliario / telas (estimado)",
+      amount: params.montoAlquiler,
+    });
+    sub += params.montoAlquiler;
+  }
+  if (params.fueraHuacho) {
+    lines.push({ label: "Decoración fuera de Huacho", amount: 25 });
+    sub += 25;
+  }
+
+  const porcentaje15 = sub * 0.15;
+  const total = sub * 1.15;
+  return { lines, subtotal: sub, porcentaje15, total };
+}
+
 export function OrderForm({
   mode,
   orderId,
@@ -150,6 +211,20 @@ export function OrderForm({
   const [categoryNombre, setCategoryNombre] = useState("");
   const [categoryDescripcion, setCategoryDescripcion] = useState("");
   const [categorySaving, setCategorySaving] = useState(false);
+  const [quoteHelpOpen, setQuoteHelpOpen] = useState(false);
+  const [qhScreens, setQhScreens] = useState("");
+  const [qhFoamNuevo, setQhFoamNuevo] = useState<"si" | "no">("no");
+  const [qhFoamPers, setQhFoamPers] = useState<"si" | "no">("no");
+  const [qhAlquiler, setQhAlquiler] = useState<"si" | "no">("no");
+  const [qhAlquilerMonto, setQhAlquilerMonto] = useState("");
+  const [qhFueraHuacho, setQhFueraHuacho] = useState<"si" | "no">("no");
+  const [qhCalcResult, setQhCalcResult] = useState<{
+    lines: QuoteCalcLine[];
+    subtotal: number;
+    porcentaje15: number;
+    total: number;
+  } | null>(null);
+  const [qhCalcError, setQhCalcError] = useState("");
   const router = useRouter();
 
   const fetchCategories = useCallback(async () => {
@@ -259,6 +334,66 @@ export function OrderForm({
     return Math.max(0, quoteVal - depositVal);
   }, [quote, deposit]);
 
+  const resetQuoteHelpModal = useCallback(() => {
+    setQhScreens("");
+    setQhFoamNuevo("no");
+    setQhFoamPers("no");
+    setQhAlquiler("no");
+    setQhAlquilerMonto("");
+    setQhFueraHuacho("no");
+    setQhCalcResult(null);
+    setQhCalcError("");
+  }, []);
+
+  const handleQuoteHelpCalculate = () => {
+    setQhCalcError("");
+    const trimmedScreens = qhScreens.trim();
+    const screensNum =
+      trimmedScreens === "" ? 0 : parseInt(trimmedScreens, 10);
+    if (trimmedScreens !== "" && (Number.isNaN(screensNum) || screensNum < 0)) {
+      setQhCalcError("Indica un número válido de pantallas (0 o mayor).");
+      return;
+    }
+
+    let alquilerMontoVal = 0;
+    if (qhAlquiler === "si") {
+      const raw = qhAlquilerMonto.trim();
+      if (raw === "") {
+        setQhCalcError(
+          "Indica el costo estimado de alquiler de mobiliario / telas.",
+        );
+        return;
+      }
+      alquilerMontoVal = parseFloat(raw.replace(",", "."));
+      if (Number.isNaN(alquilerMontoVal) || alquilerMontoVal < 0) {
+        setQhCalcError("Indica un monto válido para el alquiler.");
+        return;
+      }
+    }
+
+    const result = computeQuoteEstimate({
+      screens: screensNum,
+      foamNuevo: qhFoamNuevo === "si",
+      foamPersonalizado: qhFoamPers === "si",
+      incluyeAlquiler: qhAlquiler === "si",
+      montoAlquiler: alquilerMontoVal,
+      fueraHuacho: qhFueraHuacho === "si",
+    });
+    setQhCalcResult(result);
+  };
+
+  const handleQuoteHelpAccept = () => {
+    if (!qhCalcResult) return;
+    setQuote(qhCalcResult.total.toFixed(2));
+    setQuoteHelpOpen(false);
+    resetQuoteHelpModal();
+  };
+
+  const handleQuoteHelpDecline = () => {
+    setQuoteHelpOpen(false);
+    resetQuoteHelpModal();
+  };
+
   const minDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -326,7 +461,9 @@ export function OrderForm({
           });
           if (!uploadRes.ok) {
             const data = await uploadRes.json().catch(() => null);
-            setError(data?.detail || "No se pudo subir la imagen de resultado.");
+            setError(
+              data?.detail || "No se pudo subir la imagen de resultado.",
+            );
             setLoading(false);
             return;
           }
@@ -548,7 +685,7 @@ export function OrderForm({
                     displayEmpty
                   >
                     <MenuItem value="" disabled>
-                      <em>Seleccione una temática</em>
+                      <em></em>
                     </MenuItem>
                     {categories.map((cat) => (
                       <MenuItem key={cat.id} value={String(cat.id)}>
@@ -699,14 +836,20 @@ export function OrderForm({
 
             {isEdit && (
               <Grid size={{ xs: 12 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
                   Resultado
                 </Typography>
                 <Button
                   variant="outlined"
                   component="label"
                   fullWidth
-                  color={!resultFile && !resultPreviewUrl ? "inherit" : "primary"}
+                  color={
+                    !resultFile && !resultPreviewUrl ? "inherit" : "primary"
+                  }
                 >
                   {resultFile
                     ? resultFile.name
@@ -717,9 +860,7 @@ export function OrderForm({
                     type="file"
                     hidden
                     accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={(e) =>
-                      setResultFile(e.target.files?.[0] ?? null)
-                    }
+                    onChange={(e) => setResultFile(e.target.files?.[0] ?? null)}
                   />
                 </Button>
                 {resultPreviewUrl && (
@@ -815,6 +956,32 @@ export function OrderForm({
               />
             </Grid>
 
+            {!isEdit && (
+              <Grid size={{ xs: 12 }}>
+                <Alert
+                  severity="info"
+                  variant="outlined"
+                  sx={{
+                    cursor: "pointer",
+                    transition: "background-color 0.2s",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                  onClick={() => {
+                    resetQuoteHelpModal();
+                    setQuoteHelpOpen(true);
+                  }}
+                >
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    ¿Dudas sobre cotización?
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Abre el asistente para estimar la cotización según pantallas,
+                    foam, alquiler y ubicación.
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
+
             <Grid size={12}>
               <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
                 <Button
@@ -833,6 +1000,248 @@ export function OrderForm({
           </Grid>
         </CardContent>
       </Card>
+
+      {!isEdit && (
+      <Dialog
+        open={quoteHelpOpen}
+        onClose={handleQuoteHelpDecline}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+      >
+        <DialogTitle>¿Dudas sobre cotización?</DialogTitle>
+        <DialogContent dividers>
+          {qhCalcError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {qhCalcError}
+            </Alert>
+          )}
+          <Stack spacing={2.5}>
+            <TextField
+              label="¿Cuántas pantallas tiene?"
+              type="number"
+              fullWidth
+              size="small"
+              value={qhScreens}
+              onChange={(e) => setQhScreens(e.target.value)}
+              slotProps={{
+                htmlInput: { min: 0, step: 1 },
+              }}
+            />
+
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend">¿Incluye foam nuevo?</FormLabel>
+              <RadioGroup
+                row
+                name="foam-nuevo"
+                value={qhFoamNuevo}
+                onChange={(e) =>
+                  setQhFoamNuevo(e.target.value as "si" | "no")
+                }
+              >
+                <FormControlLabel
+                  value="si"
+                  control={<Radio size="small" />}
+                  label="Sí"
+                />
+                <FormControlLabel
+                  value="no"
+                  control={<Radio size="small" />}
+                  label="No"
+                />
+              </RadioGroup>
+            </FormControl>
+
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend">
+                ¿Incluye foam personalizado?
+              </FormLabel>
+              <RadioGroup
+                row
+                name="foam-pers"
+                value={qhFoamPers}
+                onChange={(e) => setQhFoamPers(e.target.value as "si" | "no")}
+              >
+                <FormControlLabel
+                  value="si"
+                  control={<Radio size="small" />}
+                  label="Sí"
+                />
+                <FormControlLabel
+                  value="no"
+                  control={<Radio size="small" />}
+                  label="No"
+                />
+              </RadioGroup>
+            </FormControl>
+
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend">
+                ¿Requiere alquiler de mobiliario / telas?
+              </FormLabel>
+              <RadioGroup
+                row
+                name="alquiler"
+                value={qhAlquiler}
+                onChange={(e) =>
+                  setQhAlquiler(e.target.value as "si" | "no")
+                }
+              >
+                <FormControlLabel
+                  value="si"
+                  control={<Radio size="small" />}
+                  label="Sí"
+                />
+                <FormControlLabel
+                  value="no"
+                  control={<Radio size="small" />}
+                  label="No"
+                />
+              </RadioGroup>
+            </FormControl>
+
+            {qhAlquiler === "si" && (
+              <TextField
+                label="¿Cuánto es el costo estimado de alquiler?"
+                type="number"
+                fullWidth
+                size="small"
+                value={qhAlquilerMonto}
+                onChange={(e) => setQhAlquilerMonto(e.target.value)}
+                slotProps={{
+                  htmlInput: { min: 0, step: 0.01 },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Typography color="text.secondary">S/.</Typography>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            )}
+
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend">
+                ¿La decoración está fuera de Huacho?
+              </FormLabel>
+              <RadioGroup
+                row
+                name="fuera-huacho"
+                value={qhFueraHuacho}
+                onChange={(e) =>
+                  setQhFueraHuacho(e.target.value as "si" | "no")
+                }
+              >
+                <FormControlLabel
+                  value="si"
+                  control={<Radio size="small" />}
+                  label="Sí"
+                />
+                <FormControlLabel
+                  value="no"
+                  control={<Radio size="small" />}
+                  label="No"
+                />
+              </RadioGroup>
+            </FormControl>
+
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={handleQuoteHelpCalculate}
+            >
+              Calcular
+            </Button>
+
+            {qhCalcResult && (
+              <>
+                <Divider />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Detalle del cálculo
+                </Typography>
+                <Stack spacing={0.75}>
+                  {qhCalcResult.lines.map((line, i) => (
+                    <Box
+                      key={`${line.label}-${i}`}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 2,
+                        alignItems: "baseline",
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        {line.label}
+                      </Typography>
+                      <Typography variant="body2" component="span" noWrap>
+                        S/. {formatMoneyEs(line.amount)}
+                      </Typography>
+                    </Box>
+                  ))}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      pt: 1,
+                      gap: 2,
+                    }}
+                  >
+                    <Typography variant="body2">Subtotal</Typography>
+                    <Typography variant="body2">
+                      S/. {formatMoneyEs(qhCalcResult.subtotal)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 2,
+                    }}
+                  >
+                    <Typography variant="body2">
+                      15% sobre el subtotal
+                    </Typography>
+                    <Typography variant="body2">
+                      S/. {formatMoneyEs(qhCalcResult.porcentaje15)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      pt: 1,
+                      gap: 2,
+                    }}
+                  >
+                    <Typography fontWeight={700}>Total estimado</Typography>
+                    <Typography fontWeight={700}>
+                      S/. {formatMoneyEs(qhCalcResult.total)}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 1 }}
+                >
+                  ¿Está de acuerdo?
+                </Typography>
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button variant="outlined" onClick={handleQuoteHelpDecline}>
+                    No
+                  </Button>
+                  <Button variant="contained" onClick={handleQuoteHelpAccept}>
+                    Sí
+                  </Button>
+                </Stack>
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+      </Dialog>
+      )}
 
       <Drawer
         anchor="right"

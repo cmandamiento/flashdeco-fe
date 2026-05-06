@@ -4,8 +4,16 @@ import ListIcon from "@mui/icons-material/List";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import PeopleIcon from "@mui/icons-material/People";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 
-export type NavActionIconKey = "crear" | "listar" | "categorias" | "clientes" | "finanzas" | "logout";
+export type NavActionIconKey =
+  | "crear"
+  | "listar"
+  | "categorias"
+  | "clientes"
+  | "finanzas"
+  | "galeria"
+  | "logout";
 
 export type NavAction = {
   title: string;
@@ -21,6 +29,7 @@ export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
   categorias: <CategoryIcon />,
   clientes: <PeopleIcon />,
   finanzas: <AccountBalanceIcon />,
+  galeria: <PhotoLibraryIcon />,
   logout: <LogoutIcon />,
 };
 
@@ -30,6 +39,7 @@ export const NAV_ICONS_LARGE: Record<NavActionIconKey, React.ReactNode> = {
   categorias: <CategoryIcon sx={{ fontSize: 48, color: "primary.main" }} />,
   clientes: <PeopleIcon sx={{ fontSize: 48, color: "primary.main" }} />,
   finanzas: <AccountBalanceIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+  galeria: <PhotoLibraryIcon sx={{ fontSize: 48, color: "primary.main" }} />,
   logout: <LogoutIcon sx={{ fontSize: 48, color: "primary.main" }} />,
 };
 
@@ -63,6 +73,12 @@ export const NAV_ACTIONS: NavAction[] = [
     href: "/finanzas",
     description: "Reporte de pedidos completados por mes",
     iconKey: "finanzas",
+  },
+  {
+    title: "Galería",
+    href: "/galeria",
+    description: "Imágenes referenciales de las decoraciones",
+    iconKey: "galeria",
   },
   {
     title: "Cerrar sesión",
