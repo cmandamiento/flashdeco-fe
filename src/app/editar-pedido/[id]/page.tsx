@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { OrderForm, type OrderFormInitialValues } from "@/components/OrderForm";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import { parseOrderImageList } from "@/lib/orderImages";
 
 type Order = {
   id: number;
@@ -20,8 +21,8 @@ type Order = {
   deposit: number | null;
   balance: number | null;
   status: string;
-  reference: string | null;
-  result: string | null;
+  reference: string | string[] | null;
+  result: string | string[] | null;
   observations: string | null;
   category: { id: number; name: string } | null;
   category_id: number | null;
@@ -39,8 +40,8 @@ function orderToInitialValues(order: Order): OrderFormInitialValues {
     quote: String(order.price),
     deposit: order.deposit != null ? String(order.deposit) : "",
     categoryId: order.category_id != null ? String(order.category_id) : "",
-    referenceUrl: order.reference,
-    resultUrl: order.result ?? null,
+    referenceUrls: parseOrderImageList(order.reference),
+    resultUrls: parseOrderImageList(order.result),
     observations: order.observations ?? "",
     registerPastEvent: false,
     status: order.status,

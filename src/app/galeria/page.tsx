@@ -20,6 +20,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import { parseOrderImageList } from "@/lib/orderImages";
 
 const PAGE_SIZE = 12;
 
@@ -28,7 +29,7 @@ type Order = {
   clientName: string;
   date: string;
   price: number;
-  result: string | null;
+  result: string | string[] | null;
   status: string;
 };
 
@@ -45,12 +46,14 @@ function parseOrderDateKey(dateStr: string): number {
 
 type GalleryCardProps = {
   order: Order;
-  onImageClick: (src: string) => void;
+  onImageClick: (images: string[], startIndex?: number) => void;
 };
 
 function GalleryCard({ order, onImageClick }: GalleryCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
-  const hasImage = Boolean(order.result) && !imageFailed;
+  const resultImages = parseOrderImageList(order.result);
+  const coverImage = resultImages[0] ?? null;
+  const hasImage = Boolean(coverImage) && !imageFailed;
   const editHref = `/editar-pedido/${order.id}`;
 
   return (
@@ -77,13 +80,13 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
           bgcolor: "action.hover",
         }}
       >
-        {order.result && hasImage ? (
+        {coverImage && hasImage ? (
           <Box
-            onClick={() => onImageClick(order.result!)}
+            onClick={() => onImageClick(resultImages, 0)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                onImageClick(order.result!);
+                onImageClick(resultImages, 0);
               }
             }}
             role="button"
@@ -98,7 +101,7 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
           >
             <Box
               component="img"
-              src={order.result}
+              src={coverImage}
               alt={`Imagen final pedido ${order.id} — ${order.clientName}`}
               sx={{
                 position: "absolute",
@@ -130,7 +133,7 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
           >
             <ImageNotSupportedIcon sx={{ fontSize: 40, opacity: 0.6 }} />
             <Typography variant="body2" align="center" color="text.secondary">
-              {order.result && imageFailed
+              {coverImage && imageFailed
                 ? "No se pudo cargar la imagen"
                 : "No tiene imagen"}
             </Typography>
@@ -177,7 +180,8 @@ export default function GaleriaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [modalSrc, setModalSrc] = useState<string | null>(null);
+  const [modalImages, setModalImages] = useState<string[]>([]);
+  const [modalIndex, setModalIndex] = useState(0);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -221,13 +225,18 @@ export default function GaleriaPage() {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
 
-  const openModal = useCallback((src: string) => {
-    setModalSrc(src);
+  const openModal = useCallback((images: string[], startIndex = 0) => {
+    if (images.length === 0) return;
+    setModalImages(images);
+    setModalIndex(Math.min(startIndex, images.length - 1));
   }, []);
 
   const closeModal = useCallback(() => {
-    setModalSrc(null);
+    setModalImages([]);
+    setModalIndex(0);
   }, []);
+
+  const modalSrc = modalImages[modalIndex] ?? null;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
@@ -298,7 +307,7 @@ export default function GaleriaPage() {
       )}
 
       <Dialog
-        open={modalSrc !== null}
+        open={modalImages.length > 0}
         onClose={closeModal}
         maxWidth="lg"
         fullWidth
@@ -328,18 +337,55 @@ export default function GaleriaPage() {
             Imagen final ampliada
           </Typography>
           {modalSrc && (
-            <Box
-              component="img"
-              src={modalSrc}
-              alt="Imagen final ampliada"
-              sx={{
-                width: "100%",
-                maxHeight: "85vh",
-                objectFit: "contain",
-                display: "block",
-                borderRadius: 1,
-              }}
-            />
+            <>
+              <Box
+                component="img"
+                src={modalSrc}
+                alt="Imagen final ampliada"
+                sx={{
+                  width: "100%",
+                  maxHeight: "85vh",
+                  objectFit: "contain",
+                  display: "block",
+                  borderRadius: 1,
+                }}
+              />
+              {modalImages.length > 1 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: 2,
+                    mt: 2,
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    disabled={modalIndex <= 0}
+                    onClick={() => setModalIndex((i) => Math.max(0, i - 1))}
+                  >
+                    Anterior
+                  </Button>
+                  <Typography variant="body2" color="text.secondary">
+                    {modalIndex + 1} / {modalImages.length}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    disabled={modalIndex >= modalImages.length - 1}
+                    onClick={() =>
+                      setModalIndex((i) =>
+                        Math.min(modalImages.length - 1, i + 1),
+                      )
+                    }
+                  >
+                    Siguiente
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
         </DialogContent>
       </Dialog>

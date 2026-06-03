@@ -34,6 +34,7 @@ import {
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
 import Link from "next/link";
@@ -41,6 +42,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState, useMemo, useEffect } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import { parseOrderImageList } from "@/lib/orderImages";
 
 export type Category = {
   id: number;
@@ -74,8 +76,12 @@ export type OrderFormInitialValues = {
   quote: string;
   deposit: string;
   categoryId: string;
-  referenceUrl: string | null;
-  resultUrl: string | null;
+  referenceUrls?: string[];
+  resultUrls?: string[];
+  /** @deprecated usar referenceUrls */
+  referenceUrl?: string | null;
+  /** @deprecated usar resultUrls */
+  resultUrl?: string | null;
   observations: string;
   registerPastEvent: boolean;
   status?: string;
@@ -102,13 +108,34 @@ const defaultInitial: OrderFormInitialValues = {
   quote: "",
   deposit: "",
   categoryId: "",
-  referenceUrl: null,
-  resultUrl: null,
+  referenceUrls: [],
+  resultUrls: [],
   observations: "",
   registerPastEvent: false,
 };
 
 type QuoteCalcLine = { label: string; amount: number };
+
+async function uploadImageFiles(files: File[]): Promise<string[]> {
+  const urls: string[] = [];
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      credentials: "omit",
+      body: formData,
+    });
+    if (!uploadRes.ok) {
+      const data = await uploadRes.json().catch(() => null);
+      throw new Error(data?.detail || "No se pudo subir una imagen.");
+    }
+    const { url } = await uploadRes.json();
+    urls.push(url);
+  }
+  return urls;
+}
 
 function formatMoneyEs(value: number) {
   return value.toLocaleString("es-PE", {
@@ -174,7 +201,18 @@ export function OrderForm({
   successMessage = "Pedido guardado correctamente.",
   onSuccess,
 }: OrderFormProps) {
-  const merged = { ...defaultInitial, ...initialValues };
+  const merged = {
+    ...defaultInitial,
+    ...initialValues,
+    referenceUrls:
+      initialValues.referenceUrls ??
+      parseOrderImageList(
+        initialValues.referenceUrl ?? initialValues.referenceUrls,
+      ),
+    resultUrls:
+      initialValues.resultUrls ??
+      parseOrderImageList(initialValues.resultUrl ?? initialValues.resultUrls),
+  };
   const [dni, setDni] = useState(merged.dni ?? "");
   const [clientName, setClientName] = useState(merged.clientName);
   const [phone, setPhone] = useState(merged.phone);
@@ -185,14 +223,18 @@ export function OrderForm({
   const [description, setDescription] = useState(merged.description);
   const [quote, setQuote] = useState(merged.quote);
   const [deposit, setDeposit] = useState(merged.deposit);
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    merged.referenceUrl,
+  const [existingReferenceUrls, setExistingReferenceUrls] = useState<string[]>(
+    merged.referenceUrls,
   );
-  const [resultFile, setResultFile] = useState<File | null>(null);
-  const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(
-    merged.resultUrl ?? null,
+  const [newReferenceFiles, setNewReferenceFiles] = useState<File[]>([]);
+  const [referencePreviewUrls, setReferencePreviewUrls] = useState<string[]>(
+    [],
   );
+  const [existingResultUrls, setExistingResultUrls] = useState<string[]>(
+    merged.resultUrls,
+  );
+  const [newResultFiles, setNewResultFiles] = useState<File[]>([]);
+  const [resultPreviewUrls, setResultPreviewUrls] = useState<string[]>([]);
   const [observations, setObservations] = useState(merged.observations ?? "");
   const [categoryId, setCategoryId] = useState(merged.categoryId);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -237,7 +279,7 @@ export function OrderForm({
   }, []);
 
   const isEdit = mode === "edit";
-  const hasExistingReference = Boolean(merged.referenceUrl);
+  const hasExistingReference = existingReferenceUrls.length > 0;
   const referenceRequired = !isEdit || !hasExistingReference;
 
   const handleDniChange = (value: string) => {
@@ -280,28 +322,16 @@ export function OrderForm({
   }, [fetchCategories]);
 
   useEffect(() => {
-    if (referenceFile) {
-      const url = URL.createObjectURL(referenceFile);
-      setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    } else if (isEdit && merged.referenceUrl) {
-      setPreviewUrl(merged.referenceUrl);
-    } else {
-      setPreviewUrl(null);
-    }
-  }, [referenceFile, isEdit, merged.referenceUrl]);
+    const objectUrls = newReferenceFiles.map((f) => URL.createObjectURL(f));
+    setReferencePreviewUrls([...existingReferenceUrls, ...objectUrls]);
+    return () => objectUrls.forEach((u) => URL.revokeObjectURL(u));
+  }, [newReferenceFiles, existingReferenceUrls]);
 
   useEffect(() => {
-    if (resultFile) {
-      const url = URL.createObjectURL(resultFile);
-      setResultPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    } else if (isEdit && merged.resultUrl) {
-      setResultPreviewUrl(merged.resultUrl);
-    } else {
-      setResultPreviewUrl(null);
-    }
-  }, [resultFile, isEdit, merged.resultUrl]);
+    const objectUrls = newResultFiles.map((f) => URL.createObjectURL(f));
+    setResultPreviewUrls([...existingResultUrls, ...objectUrls]);
+    return () => objectUrls.forEach((u) => URL.revokeObjectURL(u));
+  }, [newResultFiles, existingResultUrls]);
 
   useEffect(() => {
     if (!date) {
@@ -410,10 +440,10 @@ export function OrderForm({
 
     if (
       referenceRequired &&
-      !referenceFile &&
-      !(isEdit && merged.referenceUrl)
+      newReferenceFiles.length === 0 &&
+      existingReferenceUrls.length === 0
     ) {
-      setError("La imagen referencial es obligatoria.");
+      setError("Agrega al menos una imagen referencial.");
       return;
     }
 
@@ -426,49 +456,37 @@ export function OrderForm({
 
     setLoading(true);
     try {
-      let referenceUrl: string | null = isEdit
-        ? (merged.referenceUrl ?? null)
-        : null;
-      if (referenceFile) {
-        const formData = new FormData();
-        formData.append("file", referenceFile);
-        const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
-          method: "POST",
-          headers: getAuthHeaders(),
-          credentials: "omit",
-          body: formData,
-        });
-        if (!uploadRes.ok) {
-          const data = await uploadRes.json().catch(() => null);
-          setError(data?.detail || "No se pudo subir la imagen referencial.");
+      let referenceUrls: string[] = [...existingReferenceUrls];
+      if (newReferenceFiles.length > 0) {
+        try {
+          const uploaded = await uploadImageFiles(newReferenceFiles);
+          referenceUrls = [...referenceUrls, ...uploaded];
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo subir la imagen referencial.",
+          );
           setLoading(false);
           return;
         }
-        const { url } = await uploadRes.json();
-        referenceUrl = url;
       }
 
       if (isEdit && orderId != null) {
-        let resultUrl: string | null = merged.resultUrl ?? null;
-        if (resultFile) {
-          const formData = new FormData();
-          formData.append("file", resultFile);
-          const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
-            method: "POST",
-            headers: getAuthHeaders(),
-            credentials: "omit",
-            body: formData,
-          });
-          if (!uploadRes.ok) {
-            const data = await uploadRes.json().catch(() => null);
+        let resultUrls: string[] = [...existingResultUrls];
+        if (newResultFiles.length > 0) {
+          try {
+            const uploaded = await uploadImageFiles(newResultFiles);
+            resultUrls = [...resultUrls, ...uploaded];
+          } catch (err) {
             setError(
-              data?.detail || "No se pudo subir la imagen de resultado.",
+              err instanceof Error
+                ? err.message
+                : "No se pudo subir la imagen de resultado.",
             );
             setLoading(false);
             return;
           }
-          const { url } = await uploadRes.json();
-          resultUrl = url;
         }
         const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
           method: "PUT",
@@ -485,8 +503,8 @@ export function OrderForm({
             deposit: parseFloat(deposit) || 0,
             balance,
             status: merged.status || "PENDING",
-            reference: referenceUrl,
-            result: resultUrl,
+            reference: referenceUrls,
+            result: resultUrls,
             observations: observations.trim() || null,
             category_id: categoryId ? Number(categoryId) : null,
           }),
@@ -512,7 +530,7 @@ export function OrderForm({
             deposit: parseFloat(deposit) || 0,
             balance,
             status: registerPastEvent ? "COMPLETE" : "PENDING",
-            reference: referenceUrl,
+            reference: referenceUrls,
             category_id: categoryId ? Number(categoryId) : null,
           }),
         });
@@ -788,7 +806,7 @@ export function OrderForm({
 
             <Grid size={{ xs: 12 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Imagen referencial
+                Imágenes referenciales
                 {referenceRequired && (
                   <span style={{ color: "var(--mui-palette-error-main)" }}>
                     {" "}
@@ -800,37 +818,82 @@ export function OrderForm({
                 variant="outlined"
                 component="label"
                 fullWidth
-                color={!referenceFile && !previewUrl ? "error" : "primary"}
+                color={
+                  referencePreviewUrls.length === 0 ? "error" : "primary"
+                }
+                startIcon={<AddIcon />}
               >
-                {referenceFile
-                  ? referenceFile.name
-                  : previewUrl
-                    ? "Imagen actual"
-                    : "Seleccionar imagen"}
+                Agregar imágenes
                 <input
                   type="file"
                   hidden
+                  multiple
                   accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={(e) =>
-                    setReferenceFile(e.target.files?.[0] ?? null)
-                  }
-                />
-              </Button>
-              {previewUrl && (
-                <Box
-                  component="img"
-                  src={previewUrl}
-                  alt="Vista previa"
-                  sx={{
-                    mt: 2,
-                    maxWidth: "100%",
-                    maxHeight: 240,
-                    objectFit: "contain",
-                    borderRadius: 1,
-                    border: "1px solid",
-                    borderColor: "divider",
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []);
+                    if (picked.length) {
+                      setNewReferenceFiles((prev) => [...prev, ...picked]);
+                    }
+                    e.target.value = "";
                   }}
                 />
+              </Button>
+              {referencePreviewUrls.length > 0 && (
+                <Stack spacing={1.5} sx={{ mt: 2 }}>
+                  {referencePreviewUrls.map((src, index) => {
+                    const isExisting = index < existingReferenceUrls.length;
+                    return (
+                      <Box
+                        key={`${src}-${index}`}
+                        sx={{
+                          position: "relative",
+                          borderRadius: 1,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={src}
+                          alt={`Referencia ${index + 1}`}
+                          sx={{
+                            width: "100%",
+                            maxHeight: 240,
+                            objectFit: "contain",
+                            display: "block",
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          aria-label="Quitar imagen referencial"
+                          onClick={() => {
+                            if (isExisting) {
+                              setExistingReferenceUrls((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                            } else {
+                              const fileIndex =
+                                index - existingReferenceUrls.length;
+                              setNewReferenceFiles((prev) =>
+                                prev.filter((_, i) => i !== fileIndex),
+                              );
+                            }
+                          }}
+                          sx={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            bgcolor: "background.paper",
+                            "&:hover": { bgcolor: "action.hover" },
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
+                </Stack>
               )}
             </Grid>
 
@@ -841,43 +904,85 @@ export function OrderForm({
                   color="text.secondary"
                   sx={{ mb: 1 }}
                 >
-                  Resultado
+                  Fotos de resultado final
                 </Typography>
                 <Button
                   variant="outlined"
                   component="label"
                   fullWidth
-                  color={
-                    !resultFile && !resultPreviewUrl ? "inherit" : "primary"
-                  }
+                  startIcon={<AddIcon />}
                 >
-                  {resultFile
-                    ? resultFile.name
-                    : resultPreviewUrl
-                      ? "Imagen actual"
-                      : "Seleccionar imagen resultado"}
+                  Agregar fotos de resultado
                   <input
                     type="file"
                     hidden
+                    multiple
                     accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={(e) => setResultFile(e.target.files?.[0] ?? null)}
-                  />
-                </Button>
-                {resultPreviewUrl && (
-                  <Box
-                    component="img"
-                    src={resultPreviewUrl}
-                    alt="Vista previa resultado"
-                    sx={{
-                      mt: 2,
-                      maxWidth: "100%",
-                      maxHeight: 240,
-                      objectFit: "contain",
-                      borderRadius: 1,
-                      border: "1px solid",
-                      borderColor: "divider",
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files ?? []);
+                      if (picked.length) {
+                        setNewResultFiles((prev) => [...prev, ...picked]);
+                      }
+                      e.target.value = "";
                     }}
                   />
+                </Button>
+                {resultPreviewUrls.length > 0 && (
+                  <Stack spacing={1.5} sx={{ mt: 2 }}>
+                    {resultPreviewUrls.map((src, index) => {
+                      const isExisting = index < existingResultUrls.length;
+                      return (
+                        <Box
+                          key={`${src}-${index}`}
+                          sx={{
+                            position: "relative",
+                            borderRadius: 1,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <Box
+                            component="img"
+                            src={src}
+                            alt={`Resultado ${index + 1}`}
+                            sx={{
+                              width: "100%",
+                              maxHeight: 240,
+                              objectFit: "contain",
+                              display: "block",
+                            }}
+                          />
+                          <IconButton
+                            size="small"
+                            aria-label="Quitar imagen de resultado"
+                            onClick={() => {
+                              if (isExisting) {
+                                setExistingResultUrls((prev) =>
+                                  prev.filter((_, i) => i !== index),
+                                );
+                              } else {
+                                const fileIndex =
+                                  index - existingResultUrls.length;
+                                setNewResultFiles((prev) =>
+                                  prev.filter((_, i) => i !== fileIndex),
+                                );
+                              }
+                            }}
+                            sx={{
+                              position: "absolute",
+                              top: 8,
+                              right: 8,
+                              bgcolor: "background.paper",
+                              "&:hover": { bgcolor: "action.hover" },
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
                 )}
               </Grid>
             )}

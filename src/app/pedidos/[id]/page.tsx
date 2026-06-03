@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import { parseOrderImageList } from "@/lib/orderImages";
 
 type Order = {
   id: number;
@@ -37,8 +38,8 @@ type Order = {
   deposit: number | null;
   balance: number | null;
   status: string;
-  reference: string | null;
-  result: string | null;
+  reference: string | string[] | null;
+  result: string | string[] | null;
   category: { id: number; name: string; description: string | null } | null;
 };
 
@@ -89,6 +90,9 @@ export default function VerPedidoPage() {
       </Box>
     );
   }
+
+  const referenceImages = parseOrderImageList(order.reference);
+  const resultImages = parseOrderImageList(order.result);
 
   const formatDate = (dateStr: string) => {
     // Parsear fecha YYYY-MM-DD como fecha local (no UTC)
@@ -290,26 +294,41 @@ export default function VerPedidoPage() {
       drawCell(leftX + labelCol, y, tableWidth - labelCol, rowH, order.address);
       y += rowH;
 
-      // Imagen referencial titulo
-      drawCell(leftX, y, tableWidth, rowH, "Imagen Referencial", true);
+      const imgAreaH = referenceImages.length > 1 ? 90 : 120;
+      drawCell(
+        leftX,
+        y,
+        tableWidth,
+        rowH,
+        referenceImages.length > 1
+          ? "Imágenes referenciales"
+          : "Imagen Referencial",
+        true,
+      );
       y += rowH;
 
-      // Imagen referencial area
-      const imgAreaH = 120;
-      drawCell(leftX, y, tableWidth, imgAreaH, "", false);
-      if (order.reference) {
-        const dataUrl = await getImageAsDataUrl(order.reference);
-        const imgProps = pdf.getImageProperties(dataUrl);
-        const maxW = tableWidth - 10;
-        const maxH = imgAreaH - 8;
-        const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
-        const imgW = imgProps.width * ratio;
-        const imgH = imgProps.height * ratio;
-        const imgX = leftX + (tableWidth - imgW) / 2;
-        const imgY = y + (imgAreaH - imgH) / 2;
-        pdf.addImage(dataUrl, "JPEG", imgX, imgY, imgW, imgH);
+      if (referenceImages.length === 0) {
+        drawCell(leftX, y, tableWidth, imgAreaH, "", false);
+        y += imgAreaH;
+      } else {
+        for (let i = 0; i < referenceImages.length; i++) {
+          drawCell(leftX, y, tableWidth, imgAreaH, "", false);
+          const dataUrl = await getImageAsDataUrl(referenceImages[i]);
+          const imgProps = pdf.getImageProperties(dataUrl);
+          const maxW = tableWidth - 10;
+          const maxH = imgAreaH - 8;
+          const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
+          const imgW = imgProps.width * ratio;
+          const imgH = imgProps.height * ratio;
+          const imgX = leftX + (tableWidth - imgW) / 2;
+          const imgY = y + (imgAreaH - imgH) / 2;
+          pdf.addImage(dataUrl, "JPEG", imgX, imgY, imgW, imgH);
+          y += imgAreaH;
+          if (i < referenceImages.length - 1) {
+            y += 2;
+          }
+        }
       }
-      y += imgAreaH;
 
       // Totales
       const moneyLabelW = tableWidth - 55;
@@ -528,8 +547,7 @@ export default function VerPedidoPage() {
           )}
         </Grid>
 
-        {/* Imagen referencial */}
-        {order.reference && (
+        {referenceImages.length > 0 && (
           <>
             <Divider sx={{ my: 3 }} />
             <Box>
@@ -538,22 +556,65 @@ export default function VerPedidoPage() {
               >
                 <ImageIcon color="primary" />
                 <Typography variant="h6" fontWeight="bold">
-                  Imagen referencial
+                  {referenceImages.length > 1
+                    ? "Imágenes referenciales"
+                    : "Imagen referencial"}
                 </Typography>
               </Box>
+              <Stack spacing={2}>
+                {referenceImages.map((src, index) => (
+                  <Box
+                    key={`${src}-${index}`}
+                    component="img"
+                    src={src}
+                    alt={`Referencia ${index + 1}`}
+                    sx={{
+                      width: "100%",
+                      maxHeight: 500,
+                      objectFit: "contain",
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          </>
+        )}
+
+        {resultImages.length > 0 && (
+          <>
+            <Divider sx={{ my: 3 }} />
+            <Box>
               <Box
-                component="img"
-                src={order.reference}
-                alt="Referencia"
-                sx={{
-                  width: "100%",
-                  maxHeight: 500,
-                  objectFit: "contain",
-                  borderRadius: 2,
-                  border: "1px solid",
-                  borderColor: "divider",
-                }}
-              />
+                sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
+              >
+                <ImageIcon color="primary" />
+                <Typography variant="h6" fontWeight="bold">
+                  {resultImages.length > 1
+                    ? "Fotos de resultado"
+                    : "Foto de resultado"}
+                </Typography>
+              </Box>
+              <Stack spacing={2}>
+                {resultImages.map((src, index) => (
+                  <Box
+                    key={`${src}-${index}`}
+                    component="img"
+                    src={src}
+                    alt={`Resultado ${index + 1}`}
+                    sx={{
+                      width: "100%",
+                      maxHeight: 500,
+                      objectFit: "contain",
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  />
+                ))}
+              </Stack>
             </Box>
           </>
         )}
