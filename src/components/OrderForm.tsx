@@ -43,6 +43,10 @@ import { useCallback, useState, useMemo, useEffect } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import {
+  CompleteOrderModal,
+  type CompleteOrderPayload,
+} from "@/components/CompleteOrderModal";
 
 export type Category = {
   id: number;
@@ -267,6 +271,12 @@ export function OrderForm({
     total: number;
   } | null>(null);
   const [qhCalcError, setQhCalcError] = useState("");
+  const [completePastEventModalOpen, setCompletePastEventModalOpen] =
+    useState(false);
+  const [pendingReferenceUrls, setPendingReferenceUrls] = useState<string[]>(
+    [],
+  );
+  const [completingPastEvent, setCompletingPastEvent] = useState(false);
   const router = useRouter();
 
   const fetchCategories = useCallback(async () => {
@@ -426,6 +436,48 @@ export function OrderForm({
 
   const minDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
+  const handleCompletePastEvent = async ({
+    observations: completeObservations,
+    clientRating,
+  }: CompleteOrderPayload) => {
+    setCompletingPastEvent(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "omit",
+        body: JSON.stringify({
+          dni: dni.length === 8 ? dni : undefined,
+          clientName,
+          phone: phone || null,
+          date,
+          address,
+          description: description || null,
+          price: parseFloat(quote) || 0,
+          deposit: parseFloat(deposit) || 0,
+          balance,
+          status: "COMPLETE",
+          reference: pendingReferenceUrls,
+          observations: completeObservations || null,
+          client_rating: clientRating,
+          category_id: categoryId ? Number(categoryId) : null,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setError(data?.detail || "No se pudo guardar el pedido.");
+        return;
+      }
+      setCompletePastEventModalOpen(false);
+      router.push("/listar-pedidos?created=true");
+    } catch {
+      setError("Error de conexión con el backend.");
+    } finally {
+      setCompletingPastEvent(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -514,6 +566,11 @@ export function OrderForm({
           setError(data?.detail || "No se pudo actualizar el pedido.");
           return;
         }
+      } else if (registerPastEvent) {
+        setPendingReferenceUrls(referenceUrls);
+        setCompletePastEventModalOpen(true);
+        setLoading(false);
+        return;
       } else {
         const response = await fetch(`${API_BASE_URL}/orders`, {
           method: "POST",
@@ -529,7 +586,7 @@ export function OrderForm({
             price: parseFloat(quote) || 0,
             deposit: parseFloat(deposit) || 0,
             balance,
-            status: registerPastEvent ? "COMPLETE" : "PENDING",
+            status: "PENDING",
             reference: referenceUrls,
             category_id: categoryId ? Number(categoryId) : null,
           }),
@@ -1433,6 +1490,18 @@ export function OrderForm({
           ))}
         </Box>
       </Drawer>
+
+      <CompleteOrderModal
+        open={completePastEventModalOpen}
+        onClose={() => {
+          if (!completingPastEvent) setCompletePastEventModalOpen(false);
+        }}
+        onConfirm={handleCompletePastEvent}
+        confirming={completingPastEvent}
+        clientName={clientName}
+        clientDni={dni.length === 8 ? dni : null}
+        confirmLabel="Registrar evento completado"
+      />
     </>
   );
 }

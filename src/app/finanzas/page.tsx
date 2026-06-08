@@ -72,7 +72,7 @@ export default function FinanzasPage() {
         {
           headers: getAuthHeaders(),
           credentials: "omit",
-        }
+        },
       );
       if (!res.ok) throw new Error("Error al cargar pedidos");
       const data = await res.json();
@@ -199,8 +199,8 @@ export default function FinanzasPage() {
                     <TableRow>
                       <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
-                          No hay pedidos completados en {MONTHES[month - 1]?.label}{" "}
-                          {year}
+                          No hay pedidos completados en{" "}
+                          {MONTHES[month - 1]?.label} {year}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -229,7 +229,9 @@ export default function FinanzasPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      <TableRow sx={{ fontWeight: 700, bgcolor: "action.hover" }}>
+                      <TableRow
+                        sx={{ fontWeight: 700, bgcolor: "action.hover" }}
+                      >
                         <TableCell colSpan={3} align="right">
                           Total:
                         </TableCell>

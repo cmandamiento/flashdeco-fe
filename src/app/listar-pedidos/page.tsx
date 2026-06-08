@@ -52,6 +52,10 @@ import {
 } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import {
+  CompleteOrderModal,
+  type CompleteOrderPayload,
+} from "@/components/CompleteOrderModal";
 
 type Category = {
   id: number;
@@ -249,12 +253,10 @@ function ListarPedidosContent() {
   const [menuOrder, setMenuOrder] = useState<Order | null>(null);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [orderToComplete, setOrderToComplete] = useState<Order | null>(null);
-  const [completeObservations, setCompleteObservations] = useState("");
   const [completing, setCompleting] = useState(false);
 
   const openCompleteModal = (order: Order) => {
     setOrderToComplete(order);
-    setCompleteObservations("");
     setCompleteModalOpen(true);
   };
 
@@ -265,7 +267,10 @@ function ListarPedidosContent() {
     }
   };
 
-  const handleConfirmComplete = async () => {
+  const handleConfirmComplete = async ({
+    observations,
+    clientRating,
+  }: CompleteOrderPayload) => {
     if (!orderToComplete) return;
     setCompleting(true);
     try {
@@ -275,7 +280,8 @@ function ListarPedidosContent() {
         credentials: "omit",
         body: JSON.stringify({
           status: "COMPLETE",
-          observations: completeObservations.trim() || null,
+          observations: observations || null,
+          client_rating: clientRating,
         }),
       });
       if (!res.ok) throw new Error("No se pudo completar el pedido");
@@ -932,46 +938,14 @@ function ListarPedidosContent() {
         </MenuItem>
       </Menu>
 
-      <Dialog
+      <CompleteOrderModal
         open={completeModalOpen}
         onClose={closeCompleteModal}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Completar orden</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-            <TextField
-              fullWidth
-              label="Nombre"
-              value={orderToComplete?.clientName ?? ""}
-              InputProps={{ readOnly: true }}
-            />
-            <TextField
-              fullWidth
-              label="Hubo alguna observación con la orden?"
-              multiline
-              rows={4}
-              value={completeObservations}
-              onChange={(e) => setCompleteObservations(e.target.value)}
-              placeholder="Observaciones..."
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeCompleteModal} disabled={completing}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleConfirmComplete}
-            color="success"
-            variant="contained"
-            disabled={completing}
-          >
-            {completing ? "Completando..." : "Completar orden"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmComplete}
+        confirming={completing}
+        clientName={orderToComplete?.clientName ?? ""}
+        clientDni={orderToComplete?.client_dni ?? null}
+      />
 
       <Dialog open={cancelModalOpen} onClose={closeCancelModal}>
         <DialogTitle>Cancelar pedido</DialogTitle>

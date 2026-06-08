@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -40,6 +41,7 @@ type Order = {
   status: string;
   reference: string | string[] | null;
   result: string | string[] | null;
+  observations: string | null;
   category: { id: number; name: string; description: string | null } | null;
 };
 
@@ -443,6 +445,19 @@ export default function VerPedidoPage() {
             sx={{ fontWeight: "bold" }}
           />
         </Box>
+
+        {order.status === "COMPLETE" &&
+          order.observations &&
+          order.observations.trim() !== "" && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                Hubo observaciones con este cliente:
+              </Typography>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                {order.observations}
+              </Typography>
+            </Alert>
+          )}
 
         <Divider sx={{ my: 3 }} />
 
