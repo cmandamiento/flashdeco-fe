@@ -1,17 +1,13 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  TextField,
-  Typography,
-} from "@mui/material";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { API_BASE_URL } from "@/lib/config";
 import { setToken } from "@/lib/auth";
 
@@ -60,19 +56,10 @@ function LoginForm() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        bgcolor: "grey.100",
-        p: 2,
-      }}
-    >
-      <Card sx={{ maxWidth: 400, width: "100%" }}>
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+    <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
+      <Card className="w-full max-w-sm">
+        <CardContent className="p-6">
+          <div className="mb-4 flex justify-center">
             <Image
               src="/logo-flash.png"
               alt="FlashDeco"
@@ -81,69 +68,53 @@ function LoginForm() {
               style={{ width: "100%", height: "auto" }}
               priority
             />
-          </Box>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            align="center"
-            sx={{ mb: 3 }}
-          >
+          </div>
+          <p className="mb-6 text-center text-sm text-muted-foreground">
             Inicia sesión para continuar
-          </Typography>
+          </p>
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              label="Usuario"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              sx={{ mb: 2 }}
-              autoComplete="username"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              sx={{ mb: 2 }}
-              autoComplete="current-password"
-              required
-            />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Usuario</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </div>
 
             {error && (
-              <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-                {error}
-              </Typography>
+              <p className="text-sm text-destructive">{error}</p>
             )}
 
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              size="large"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? "Entrando..." : "Iniciar sesión"}
             </Button>
 
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              sx={{ mt: 2 }}
-            >
+            <p className="text-center text-sm text-muted-foreground">
               ¿No tienes cuenta?{" "}
-              <Link href="/users" style={{ color: "inherit" }}>
+              <Link href="/users" className="text-primary hover:underline">
                 Registrarse
               </Link>
-            </Typography>
-          </Box>
+            </p>
+          </form>
         </CardContent>
       </Card>
-    </Box>
+    </div>
   );
 }
 

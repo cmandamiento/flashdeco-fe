@@ -1,37 +1,39 @@
 "use client";
 
+import { MoreVertical, Pencil, Plus } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  IconButton,
-  Menu,
-  MenuItem,
-  Rating,
-  Snackbar,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { StarRating } from "@/components/ui/star-rating";
+import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  TextField,
-  Typography,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import EditIcon from "@mui/icons-material/Edit";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+} from "@/components/ui/table";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import { formatPhone, getWhatsAppUrl } from "@/lib/phone";
 
 type Client = {
   id: number;
@@ -41,6 +43,25 @@ type Client = {
   order_count?: number;
   rating?: number | null;
 };
+
+function PhoneCell({ phone }: { phone: string | null }) {
+  const formatted = formatPhone(phone);
+  const whatsappUrl = phone ? getWhatsAppUrl(phone) : null;
+
+  if (!formatted) return <>—</>;
+  if (!whatsappUrl) return <>{formatted}</>;
+
+  return (
+    <a
+      href={whatsappUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary hover:underline"
+    >
+      {formatted}
+    </a>
+  );
+}
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -52,10 +73,6 @@ export default function ClientesPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [menuClient, setMenuClient] = useState<Client | null>(null);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -125,7 +142,7 @@ export default function ClientesPage() {
           const data = await res.json().catch(() => null);
           throw new Error(data?.detail || "No se pudo actualizar el cliente");
         }
-        setSnackbarMessage("Cliente actualizado correctamente.");
+        toast.success("Cliente actualizado correctamente.");
       } else {
         const res = await fetch(`${API_BASE_URL}/clients`, {
           method: "POST",
@@ -137,9 +154,8 @@ export default function ClientesPage() {
           const data = await res.json().catch(() => null);
           throw new Error(data?.detail || "No se pudo guardar el cliente");
         }
-        setSnackbarMessage("Cliente guardado correctamente.");
+        toast.success("Cliente guardado correctamente.");
       }
-      setSnackbarOpen(true);
       closeModal();
       await fetchClients();
     } catch (e) {
@@ -149,191 +165,165 @@ export default function ClientesPage() {
     }
   };
 
-  const openMenu = (event: React.MouseEvent<HTMLElement>, client: Client) => {
-    setMenuAnchor(event.currentTarget);
-    setMenuClient(client);
-  };
-
-  const closeMenu = () => {
-    setMenuAnchor(null);
-    setMenuClient(null);
-  };
-
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 2 }}
-      >
-        Volver
-      </Button>
-
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4" component="h1">
-          Clientes
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => openModal()}>
-          Agregar cliente
-        </Button>
-      </Box>
+    <div className="mx-auto max-w-4xl p-6">
+      <PageHeader
+        title="Clientes"
+        backHref="/"
+        backLabel="Volver"
+        action={
+          <Button onClick={() => openModal()}>
+            <Plus className="size-4" />
+            Agregar cliente
+          </Button>
+        }
+      />
 
       <Card>
-        <CardContent sx={{ p: 0 }}>
+        <CardContent className="p-0">
           {error && (
-            <Typography color="error" sx={{ p: 2 }}>
-              {error}
-            </Typography>
+            <p className="p-4 text-sm text-destructive">{error}</p>
           )}
           {loading ? (
-            <Typography color="text.secondary" sx={{ p: 3 }}>
-              Cargando clientes...
-            </Typography>
+            <p className="p-6 text-muted-foreground">Cargando clientes...</p>
           ) : (
-            <TableContainer>
-              <Table size="medium">
-                <TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>DNI</TableHead>
+                  <TableHead>Nombres completos</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead className="text-center">Nro de pedidos</TableHead>
+                  <TableHead className="text-center">Estrellas</TableHead>
+                  <TableHead className="w-14 text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clients.length === 0 ? (
                   <TableRow>
-                    <TableCell>DNI</TableCell>
-                    <TableCell>Nombres completos</TableCell>
-                    <TableCell>Teléfono</TableCell>
-                    <TableCell align="center">Nro de pedidos</TableCell>
-                    <TableCell align="center">Estrellas</TableCell>
-                    <TableCell align="right" sx={{ width: 56 }} />
+                    <TableCell colSpan={6} className="py-8 text-center">
+                      <span className="text-muted-foreground">
+                        No hay clientes registrados
+                      </span>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {clients.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
-                          No hay clientes registrados
-                        </Typography>
+                ) : (
+                  clients.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.dni}</TableCell>
+                      <TableCell>{row.full_name}</TableCell>
+                      <TableCell>
+                        <PhoneCell phone={row.phone} />
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    clients.map((row) => (
-                      <TableRow key={row.id} hover>
-                        <TableCell>{row.dni}</TableCell>
-                        <TableCell>{row.full_name}</TableCell>
-                        <TableCell>{row.phone ?? "—"}</TableCell>
-                        <TableCell align="center">{row.order_count ?? 0}</TableCell>
-                        <TableCell align="center">
-                          <Rating
+                      <TableCell className="text-center">
+                        {row.order_count ?? 0}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <StarRating
                             value={row.rating ?? 0}
                             readOnly
-                            size="small"
-                            max={5}
+                            size="sm"
                           />
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            aria-label="Acciones"
-                            onClick={(e) => openMenu(e, row)}
-                            sx={{ minWidth: 48, minHeight: 48 }}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-12"
+                              aria-label="Acciones"
+                            >
+                              <MoreVertical className="size-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/listar-pedidos?dni=${row.dni}&status=all`}
+                              >
+                                Ver pedidos
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openModal(row)}>
+                              <Pencil className="size-4" />
+                              Editar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={closeMenu}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) closeModal();
+          else setModalOpen(true);
+        }}
       >
-        <MenuItem
-          component={Link}
-          href={menuClient ? `/listar-pedidos?dni=${menuClient.dni}&status=all` : "#"}
-          onClick={closeMenu}
-        >
-          Ver pedidos
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (menuClient) openModal(menuClient);
-            closeMenu();
-          }}
-        >
-          Editar
-        </MenuItem>
-      </Menu>
-
-      <Dialog open={modalOpen} onClose={closeModal} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingId != null ? "Editar cliente" : "Agregar cliente"}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-            <TextField
-              label="DNI (8 dígitos)"
-              value={dni}
-              onChange={(e) => handleDniChange(e.target.value)}
-              required
-              fullWidth
-              inputProps={{ maxLength: 8, inputMode: "numeric", pattern: "[0-9]*" }}
-              helperText="Solo números"
-              disabled={editingId != null}
-            />
-            <TextField
-              label="Nombres completos"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              fullWidth
-              autoFocus={editingId != null}
-            />
-            <TextField
-              label="Teléfono"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              fullWidth
-              type="tel"
-            />
-          </Box>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingId != null ? "Editar cliente" : "Agregar cliente"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="client-dni">DNI (8 dígitos)</Label>
+              <Input
+                id="client-dni"
+                value={dni}
+                onChange={(e) => handleDniChange(e.target.value)}
+                required
+                maxLength={8}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                disabled={editingId != null}
+              />
+              <p className="text-xs text-muted-foreground">Solo números</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="client-name">Nombres completos</Label>
+              <Input
+                id="client-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                autoFocus={editingId != null}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="client-phone">Teléfono</Label>
+              <Input
+                id="client-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                type="tel"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !dni || dni.length !== 8 || !fullName.trim()}
+            >
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeModal} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={saving || !dni || dni.length !== 8 || !fullName.trim()}
-          >
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
-        </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" variant="filled">
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

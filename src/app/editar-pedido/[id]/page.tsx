@@ -1,11 +1,11 @@
 "use client";
 
-import { Box, Button, Typography } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/PageHeader";
 import { OrderForm, type OrderFormInitialValues } from "@/components/OrderForm";
+import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
@@ -82,40 +82,31 @@ export default function EditarPedidoPage() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
-        <Typography color="text.secondary">Cargando pedido...</Typography>
-      </Box>
+      <div className="mx-auto max-w-3xl p-6">
+        <p className="text-muted-foreground">Cargando pedido...</p>
+      </div>
     );
   }
 
   if (error || !order) {
     return (
-      <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
-        <Typography color="error">{error || "Pedido no encontrado"}</Typography>
-        <Button component={Link} href="/listar-pedidos" sx={{ mt: 2 }}>
-          Volver a listar pedidos
+      <div className="mx-auto max-w-3xl p-6">
+        <p className="text-destructive">{error || "Pedido no encontrado"}</p>
+        <Button variant="outline" className="mt-4" asChild>
+          <Link href="/listar-pedidos">Volver a listar pedidos</Link>
         </Button>
-      </Box>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/listar-pedidos"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 2 }}
-      >
-        Volver
-      </Button>
-
-      <Typography variant="h4" component="h1" gutterBottom>
-        Editar pedido
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Modifica los datos del pedido
-      </Typography>
+    <div className="mx-auto max-w-3xl p-6">
+      <PageHeader
+        title="Editar pedido"
+        description="Modifica los datos del pedido"
+        backHref="/listar-pedidos"
+        backLabel="Volver"
+      />
 
       <OrderForm
         mode="edit"
@@ -127,6 +118,6 @@ export default function EditarPedidoPage() {
         successMessage="Pedido actualizado correctamente."
         onSuccess={() => router.push("/listar-pedidos")}
       />
-    </Box>
+    </div>
   );
 }

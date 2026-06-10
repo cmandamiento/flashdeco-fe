@@ -1,28 +1,28 @@
 "use client";
 
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { Eye } from "lucide-react";
+import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  Typography,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { API_BASE_URL } from "@/lib/config";
-import { getAuthHeaders } from "@/lib/auth";
+} from "@/components/ui/table";
 
 type Order = {
   id: number;
@@ -76,7 +76,7 @@ export default function FinanzasPage() {
       );
       if (!res.ok) throw new Error("Error al cargar pedidos");
       const data = await res.json();
-      setOrders(data);
+      setOrders(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de conexión");
     } finally {
@@ -106,150 +106,117 @@ export default function FinanzasPage() {
   const years = Array.from({ length: 10 }, (_, i) => now.getFullYear() - i);
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 2 }}
-      >
-        Volver
-      </Button>
-
-      <Typography variant="h4" component="h1" gutterBottom>
-        Finanzas
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Reporte de pedidos completados por mes
-      </Typography>
+    <div className="mx-auto max-w-6xl p-6">
+      <PageHeader
+        title="Finanzas"
+        description="Reporte de pedidos completados por mes"
+        backHref="/"
+      />
 
       <Card>
-        <CardContent sx={{ p: 2 }}>
-          <Box
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 2,
-              mb: 2,
-            }}
-          >
-            <Typography component="span" variant="body2">
-              Mes:
-            </Typography>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel id="month-label">Mes</InputLabel>
+        <CardContent className="space-y-4 p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Mes:</span>
               <Select
-                labelId="month-label"
-                value={month}
-                label="Mes"
-                onChange={(e) => setMonth(Number(e.target.value))}
+                value={String(month)}
+                onValueChange={(v) => setMonth(Number(v))}
               >
-                {MONTHES.map((m) => (
-                  <MenuItem key={m.value} value={m.value}>
-                    {m.label}
-                  </MenuItem>
-                ))}
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHES.map((m) => (
+                    <SelectItem key={m.value} value={String(m.value)}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-            </FormControl>
-            <Typography component="span" variant="body2">
-              Año:
-            </Typography>
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel id="year-label">Año</InputLabel>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Año:</span>
               <Select
-                labelId="year-label"
-                value={year}
-                label="Año"
-                onChange={(e) => setYear(Number(e.target.value))}
+                value={String(year)}
+                onValueChange={(v) => setYear(Number(v))}
               >
-                {years.map((y) => (
-                  <MenuItem key={y} value={y}>
-                    {y}
-                  </MenuItem>
-                ))}
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-            </FormControl>
-          </Box>
+            </div>
+          </div>
 
-          {error && (
-            <Typography color="error" sx={{ mb: 2 }}>
-              {error}
-            </Typography>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           {loading ? (
-            <Typography color="text.secondary" sx={{ py: 3 }}>
-              Cargando...
-            </Typography>
+            <p className="py-6 text-muted-foreground">Cargando...</p>
           ) : (
-            <TableContainer>
-              <Table size="medium">
-                <TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead className="text-right">Importe (S/)</TableHead>
+                  <TableHead className="text-right">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell>Cliente</TableCell>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell>Categoría</TableCell>
-                    <TableCell align="right">Importe (S/)</TableCell>
-                    <TableCell align="right">Acción</TableCell>
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      No hay pedidos completados en {MONTHES[month - 1]?.label}{" "}
+                      {year}
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {orders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
-                          No hay pedidos completados en{" "}
-                          {MONTHES[month - 1]?.label} {year}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <>
-                      {orders.map((row) => (
-                        <TableRow key={row.id} hover>
-                          <TableCell>{row.clientName}</TableCell>
-                          <TableCell>{formatDate(row.date)}</TableCell>
-                          <TableCell>{row.category?.name ?? "—"}</TableCell>
-                          <TableCell align="right">
-                            {(row.price ?? 0).toLocaleString("es-PE", {
-                              minimumFractionDigits: 2,
-                            })}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              component={Link}
-                              href={`/pedidos/${row.id}`}
-                              size="small"
-                              startIcon={<VisibilityIcon />}
-                              aria-label="Ver orden"
-                            >
-                              Ver
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow
-                        sx={{ fontWeight: 700, bgcolor: "action.hover" }}
-                      >
-                        <TableCell colSpan={3} align="right">
-                          Total:
-                        </TableCell>
-                        <TableCell align="right">
-                          {totalPrice.toLocaleString("es-PE", {
+                ) : (
+                  <>
+                    {orders.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.clientName}</TableCell>
+                        <TableCell>{formatDate(row.date)}</TableCell>
+                        <TableCell>{row.category?.name ?? "—"}</TableCell>
+                        <TableCell className="text-right">
+                          {(row.price ?? 0).toLocaleString("es-PE", {
                             minimumFractionDigits: 2,
                           })}
                         </TableCell>
-                        <TableCell />
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/pedidos/${row.id}`}>
+                              <Eye className="size-4" />
+                              Ver
+                            </Link>
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                    ))}
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell colSpan={3} className="text-right">
+                        Total:
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {totalPrice.toLocaleString("es-PE", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
-    </Box>
+    </div>
   );
 }

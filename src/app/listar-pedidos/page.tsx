@@ -2,45 +2,15 @@
 
 import { Suspense } from "react";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  FormControl,
-  IconButton,
-  InputLabel,
-  Menu,
-  MenuItem,
-  Select,
-  Snackbar,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableSortLabel,
-  TextField,
-  Typography,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import EditIcon from "@mui/icons-material/Edit";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import CancelIcon from "@mui/icons-material/Cancel";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import dayjs, { type Dayjs } from "dayjs";
-import "dayjs/locale/es";
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle,
+  Eye,
+  MoreVertical,
+  Pencil,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -50,12 +20,50 @@ import {
   useRef,
   useState,
 } from "react";
-import { API_BASE_URL } from "@/lib/config";
-import { getAuthHeaders } from "@/lib/auth";
+import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import {
   CompleteOrderModal,
   type CompleteOrderPayload,
 } from "@/components/CompleteOrderModal";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 type Category = {
   id: number;
@@ -152,23 +160,70 @@ function patchParams(
 
 function StatusCell({ status }: { status: Order["status"] }) {
   const config = {
-    PENDING: { label: "Pendiente", color: "#ed6c02" },
-    COMPLETE: { label: "Completado", color: "#2e7d32" },
-    CANCELLED: { label: "Cancelado", color: "#d32f2f" },
+    PENDING: {
+      label: "Pendiente",
+      className: "border-amber-500 bg-amber-50 text-amber-700",
+    },
+    COMPLETE: {
+      label: "Completado",
+      className: "border-green-600 bg-green-50 text-green-700",
+    },
+    CANCELLED: {
+      label: "Cancelado",
+      className: "border-destructive bg-destructive/10 text-destructive",
+    },
   };
-  const { label, color } = config[status] ?? config.PENDING;
+  const { label, className } = config[status] ?? config.PENDING;
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      <Box
-        sx={{
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          bgcolor: color,
-        }}
+    <Badge variant="outline" className={className}>
+      <span
+        className={cn(
+          "size-2 rounded-full",
+          status === "PENDING" && "bg-amber-500",
+          status === "COMPLETE" && "bg-green-600",
+          status === "CANCELLED" && "bg-destructive",
+        )}
       />
-      <Typography variant="body2">{label}</Typography>
-    </Box>
+      {label}
+    </Badge>
+  );
+}
+
+function SortableHead({
+  label,
+  field,
+  orderBy,
+  orderDir,
+  onSort,
+  className,
+}: {
+  label: string;
+  field: OrderBy;
+  orderBy: OrderBy;
+  orderDir: "asc" | "desc";
+  onSort: (field: OrderBy) => void;
+  className?: string;
+}) {
+  const active = orderBy === field;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+        onClick={() => onSort(field)}
+      >
+        {label}
+        {active ? (
+          orderDir === "asc" ? (
+            <ArrowUp className="size-4" />
+          ) : (
+            <ArrowDown className="size-4" />
+          )
+        ) : (
+          <ArrowUpDown className="size-4 opacity-40" />
+        )}
+      </button>
+    </TableHead>
   );
 }
 
@@ -191,12 +246,6 @@ function formatPrice(value: number) {
   return `S/. ${(value ?? 0).toLocaleString("es-PE", {
     minimumFractionDigits: 2,
   })}`;
-}
-
-function parseYmdToDayjs(ymd: string): Dayjs | null {
-  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-  const [y, m, d] = ymd.split("-").map(Number);
-  return dayjs(new Date(y, m - 1, d));
 }
 
 function ListarPedidosContent() {
@@ -247,10 +296,7 @@ function ListarPedidosContent() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [successSnackbarOpen, setSuccessSnackbarOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [menuOrder, setMenuOrder] = useState<Order | null>(null);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [orderToComplete, setOrderToComplete] = useState<Order | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -294,23 +340,9 @@ function ListarPedidosContent() {
     }
   };
 
-  const openActionsMenu = (
-    event: React.MouseEvent<HTMLElement>,
-    order: Order,
-  ) => {
-    event.preventDefault();
-    setMenuAnchor(event.currentTarget);
-    setMenuOrder(order);
-  };
-
-  const closeActionsMenu = () => {
-    setMenuAnchor(null);
-    setMenuOrder(null);
-  };
-
   useEffect(() => {
     if (searchParams.get("created") !== "true") return;
-    setSuccessSnackbarOpen(true);
+    toast.success("Pedido creado correctamente");
     const p = patchParams(searchParams, { created: null });
     const qs = p.toString();
     router.replace(qs ? `/listar-pedidos?${qs}` : "/listar-pedidos", {
@@ -472,7 +504,6 @@ function ListarPedidosContent() {
 
   const formatDate = (dateStr: string) => {
     try {
-      // Parsear fecha YYYY-MM-DD como fecha local (no UTC)
       const [year, month, day] = dateStr.split("-").map(Number);
       const date = new Date(year, month - 1, day);
       return date.toLocaleDateString("es-PE", {
@@ -486,457 +517,346 @@ function ListarPedidosContent() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 2 }}
-      >
-        Volver
-      </Button>
-
-      <Typography variant="h4" component="h1" gutterBottom>
-        Listar pedidos
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Consulta todos los pedidos registrados
-      </Typography>
+    <div className="mx-auto max-w-6xl p-6">
+      <PageHeader
+        title="Listar pedidos"
+        description="Consulta todos los pedidos registrados"
+        backHref="/"
+        backLabel="Volver"
+      />
 
       <Card>
-        <CardContent sx={{ p: 0 }}>
+        <CardContent className="p-0">
           {error && (
-            <Typography color="error" sx={{ p: 2 }}>
-              {error}
-            </Typography>
+            <Alert variant="destructive" className="m-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
           {loading ? (
-            <Typography color="text.secondary" sx={{ p: 3 }}>
-              Cargando pedidos...
-            </Typography>
+            <p className="p-6 text-muted-foreground">Cargando pedidos...</p>
           ) : (
             <>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: { xs: "column", sm: "row" },
-                  flexWrap: { sm: "wrap" },
-                  alignItems: { xs: "stretch", sm: "center" },
-                  gap: 2,
-                  p: 2,
-                  borderBottom: 1,
-                  borderColor: "divider",
-                }}
-              >
-                <FormControl
-                  size="small"
-                  sx={{
-                    minWidth: { xs: "100%", sm: 180 },
-                    maxWidth: { xs: "100%", sm: 220 },
-                  }}
-                >
-                  <InputLabel id="date-range-label">Rango de fechas</InputLabel>
+              <div className="flex flex-col gap-4 border-b p-4 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="w-full space-y-2 sm:w-auto sm:min-w-[180px] sm:max-w-[220px]">
+                  <Label htmlFor="date-range">Rango de fechas</Label>
                   <Select
-                    labelId="date-range-label"
                     value={dateRangeFilter}
-                    label="Rango de fechas"
-                    onChange={(e) => {
-                      const v = e.target.value as DateRangeKey;
-                      if (v === "custom") {
+                    onValueChange={(v) => {
+                      const range = v as DateRangeKey;
+                      if (range === "custom") {
                         replaceQuery({ range: "custom" });
                       } else {
                         replaceQuery({
-                          range: v === DEFAULT_RANGE ? null : v,
+                          range: range === DEFAULT_RANGE ? null : range,
                           from: null,
                           to: null,
                         });
                       }
                     }}
                   >
-                    <MenuItem value="current_month">Mes actual</MenuItem>
-                    <MenuItem value="previous_month">Mes anterior</MenuItem>
-                    <MenuItem value="last_3_months">Últimos 3 meses</MenuItem>
-                    <MenuItem value="custom">Personalizado</MenuItem>
+                    <SelectTrigger id="date-range" className="w-full">
+                      <SelectValue placeholder="Rango de fechas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="current_month">Mes actual</SelectItem>
+                      <SelectItem value="previous_month">Mes anterior</SelectItem>
+                      <SelectItem value="last_3_months">Últimos 3 meses</SelectItem>
+                      <SelectItem value="custom">Personalizado</SelectItem>
+                    </SelectContent>
                   </Select>
-                </FormControl>
+                </div>
+
                 {dateRangeFilter === "custom" && (
-                  <LocalizationProvider
-                    dateAdapter={AdapterDayjs}
-                    adapterLocale="es"
-                  >
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      spacing={1}
-                      alignItems={{ xs: "stretch", sm: "center" }}
-                      sx={{
-                        minWidth: { xs: "100%", sm: "auto" },
-                        p: 1,
-                        border: 1,
-                        borderColor: "divider",
-                        borderRadius: 1,
-                        bgcolor: "action.hover",
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          px: 0.5,
-                          fontWeight: 600,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          width: { xs: "100%", sm: "auto" },
-                        }}
-                      >
-                        Período
-                      </Typography>
-                      <DatePicker
-                        label="Desde"
-                        value={parseYmdToDayjs(customDateFrom)}
-                        onChange={(v) => {
+                  <div className="flex w-full flex-col gap-3 rounded-md border bg-muted/40 p-3 sm:w-auto sm:flex-row sm:items-end">
+                    <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Período
+                    </span>
+                    <div className="space-y-2 sm:min-w-[150px]">
+                      <Label htmlFor="date-from">Desde</Label>
+                      <Input
+                        id="date-from"
+                        type="date"
+                        value={customDateFrom}
+                        max={customDateTo || undefined}
+                        onChange={(e) => {
                           replaceQuery({
-                            from:
-                              v?.isValid() === true
-                                ? v.format("YYYY-MM-DD")
-                                : null,
+                            from: e.target.value || null,
                             range: "custom",
                           });
                         }}
-                        maxDate={
-                          parseYmdToDayjs(customDateTo) ?? undefined
-                        }
-                        slotProps={{
-                          textField: {
-                            size: "small",
-                            sx: { minWidth: { xs: "100%", sm: 150 } },
-                          },
-                        }}
                       />
-                      <Typography
-                        color="text.secondary"
-                        sx={{ display: { xs: "none", sm: "block" }, px: 0.5 }}
-                      >
-                        –
-                      </Typography>
-                      <DatePicker
-                        label="Hasta"
-                        value={parseYmdToDayjs(customDateTo)}
-                        onChange={(v) => {
+                    </div>
+                    <span className="hidden text-muted-foreground sm:block">–</span>
+                    <div className="space-y-2 sm:min-w-[150px]">
+                      <Label htmlFor="date-to">Hasta</Label>
+                      <Input
+                        id="date-to"
+                        type="date"
+                        value={customDateTo}
+                        min={customDateFrom || undefined}
+                        onChange={(e) => {
                           replaceQuery({
-                            to:
-                              v?.isValid() === true
-                                ? v.format("YYYY-MM-DD")
-                                : null,
+                            to: e.target.value || null,
                             range: "custom",
                           });
                         }}
-                        minDate={
-                          parseYmdToDayjs(customDateFrom) ?? undefined
-                        }
-                        slotProps={{
-                          textField: {
-                            size: "small",
-                            sx: { minWidth: { xs: "100%", sm: 150 } },
-                          },
-                        }}
                       />
-                    </Stack>
-                  </LocalizationProvider>
+                    </div>
+                  </div>
                 )}
-                <FormControl
-                  size="small"
-                  sx={{
-                    minWidth: { xs: "100%", sm: 160 },
-                    maxWidth: { xs: "100%", sm: 200 },
-                  }}
-                >
-                  <InputLabel id="status-filter-label">Estado</InputLabel>
+
+                <div className="w-full space-y-2 sm:w-auto sm:min-w-[160px] sm:max-w-[200px]">
+                  <Label htmlFor="status-filter">Estado</Label>
                   <Select
-                    labelId="status-filter-label"
                     value={statusFilter}
-                    label="Estado"
-                    onChange={(e) => {
-                      const v = e.target.value as
+                    onValueChange={(v) => {
+                      const status = v as
                         | "PENDING"
                         | "COMPLETE"
                         | "CANCELLED"
                         | "all";
                       replaceQuery({
-                        status: v === DEFAULT_STATUS ? null : v,
+                        status: status === DEFAULT_STATUS ? null : status,
                       });
                     }}
                   >
-                    <MenuItem value="PENDING">Pendientes</MenuItem>
-                    <MenuItem value="COMPLETE">Completados</MenuItem>
-                    <MenuItem value="CANCELLED">Cancelados</MenuItem>
-                    <MenuItem value="all">Todos</MenuItem>
+                    <SelectTrigger id="status-filter" className="w-full">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PENDING">Pendientes</SelectItem>
+                      <SelectItem value="COMPLETE">Completados</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelados</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                    </SelectContent>
                   </Select>
-                </FormControl>
-                <TextField
-                  size="small"
-                  label="DNI cliente"
-                  placeholder="8 dígitos"
-                  value={dniInput}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 8);
-                    setDniInput(v);
-                    if (dniDebounceRef.current) clearTimeout(dniDebounceRef.current);
-                    dniDebounceRef.current = setTimeout(() => {
-                      replaceQuery({ dni: v.length > 0 ? v : null });
-                    }, 400);
-                  }}
-                  sx={{
-                    minWidth: { xs: "100%", sm: 140 },
-                    maxWidth: { xs: "100%", sm: 160 },
-                  }}
-                  inputProps={{ maxLength: 8, inputMode: "numeric" }}
-                />
-                <FormControl
-                  size="small"
-                  sx={{
-                    minWidth: { xs: "100%", sm: 160 },
-                    maxWidth: { xs: "100%", sm: 200 },
-                  }}
-                >
-                  <InputLabel id="category-filter-label">Temática</InputLabel>
-                  <Select
-                    labelId="category-filter-label"
-                    value={categoryFilter}
-                    label="Temática"
+                </div>
+
+                <div className="w-full space-y-2 sm:w-auto sm:min-w-[140px] sm:max-w-[160px]">
+                  <Label htmlFor="dni-filter">DNI cliente</Label>
+                  <Input
+                    id="dni-filter"
+                    placeholder="8 dígitos"
+                    value={dniInput}
                     onChange={(e) => {
-                      const raw = e.target.value;
+                      const v = e.target.value.replace(/\D/g, "").slice(0, 8);
+                      setDniInput(v);
+                      if (dniDebounceRef.current)
+                        clearTimeout(dniDebounceRef.current);
+                      dniDebounceRef.current = setTimeout(() => {
+                        replaceQuery({ dni: v.length > 0 ? v : null });
+                      }, 400);
+                    }}
+                    maxLength={8}
+                    inputMode="numeric"
+                  />
+                </div>
+
+                <div className="w-full space-y-2 sm:w-auto sm:min-w-[160px] sm:max-w-[200px]">
+                  <Label htmlFor="category-filter">Temática</Label>
+                  <Select
+                    value={String(categoryFilter)}
+                    onValueChange={(v) => {
                       replaceQuery({
-                        category:
-                          raw === "all" ? null : String(Number(raw)),
+                        category: v === "all" ? null : v,
                       });
                     }}
                   >
-                    <MenuItem value="all">Todas</MenuItem>
-                    {categories.map((cat) => (
-                      <MenuItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </MenuItem>
-                    ))}
+                    <SelectTrigger id="category-filter" className="w-full">
+                      <SelectValue placeholder="Temática" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={String(cat.id)}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
-                </FormControl>
-              </Box>
-              <TableContainer>
-                <Table size="medium">
-                  <TableHead>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableHead
+                      label="Cliente"
+                      field="clientName"
+                      orderBy={orderBy}
+                      orderDir={orderDir}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Fecha"
+                      field="date"
+                      orderBy={orderBy}
+                      orderDir={orderDir}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Estado"
+                      field="status"
+                      orderBy={orderBy}
+                      orderDir={orderDir}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Temática"
+                      field="category"
+                      orderBy={orderBy}
+                      orderDir={orderDir}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Precio total"
+                      field="price"
+                      orderBy={orderBy}
+                      orderDir={orderDir}
+                      onSort={handleSort}
+                      className="text-right"
+                    />
+                    <TableHead className="text-right">Acción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell>
-                        <TableSortLabel
-                          active={orderBy === "clientName"}
-                          direction={
-                            orderBy === "clientName" ? orderDir : "asc"
-                          }
-                          onClick={() => handleSort("clientName")}
-                        >
-                          Cliente
-                        </TableSortLabel>
+                      <TableCell colSpan={6} className="py-8 text-center">
+                        <span className="text-muted-foreground">
+                          {statusFilter === "all" && categoryFilter === "all"
+                            ? "No hay pedidos registrados"
+                            : "No hay pedidos que coincidan con los filtros"}
+                        </span>
                       </TableCell>
-                      <TableCell>
-                        <TableSortLabel
-                          active={orderBy === "date"}
-                          direction={orderBy === "date" ? orderDir : "asc"}
-                          onClick={() => handleSort("date")}
-                        >
-                          Fecha
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell>
-                        <TableSortLabel
-                          active={orderBy === "status"}
-                          direction={orderBy === "status" ? orderDir : "asc"}
-                          onClick={() => handleSort("status")}
-                        >
-                          Estado
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell>
-                        <TableSortLabel
-                          active={orderBy === "category"}
-                          direction={orderBy === "category" ? orderDir : "asc"}
-                          onClick={() => handleSort("category")}
-                        >
-                          Temática
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="right">
-                        <TableSortLabel
-                          active={orderBy === "price"}
-                          direction={orderBy === "price" ? orderDir : "asc"}
-                          onClick={() => handleSort("price")}
-                        >
-                          Precio total
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="right">Acción</TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {sortedOrders.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">
-                            {statusFilter === "all" && categoryFilter === "all"
-                              ? "No hay pedidos registrados"
-                              : "No hay pedidos que coincidan con los filtros"}
-                          </Typography>
+                  ) : (
+                    sortedOrders.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.clientName}</TableCell>
+                        <TableCell>{formatDate(row.date)}</TableCell>
+                        <TableCell>
+                          <StatusCell status={row.status} />
                         </TableCell>
-                      </TableRow>
-                    ) : (
-                      sortedOrders.map((row) => (
-                        <TableRow key={row.id} hover>
-                          <TableCell>{row.clientName}</TableCell>
-                          <TableCell>{formatDate(row.date)}</TableCell>
-                          <TableCell>
-                            <StatusCell status={row.status} />
-                          </TableCell>
-                          <TableCell>{row.category?.name ?? "—"}</TableCell>
-                          <TableCell align="right">
-                            {formatPrice(row.price)}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Box
-                              sx={{
-                                display: { xs: "block", sm: "none" },
-                              }}
-                            >
-                              <IconButton
-                                aria-label="Acciones"
-                                aria-haspopup="true"
-                                onClick={(e) => openActionsMenu(e, row)}
-                                sx={{ minWidth: 48, minHeight: 48 }}
-                              >
-                                <MoreVertIcon />
-                              </IconButton>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: { xs: "none", sm: "flex" },
-                                gap: 0.5,
-                                justifyContent: "flex-end",
-                              }}
-                            >
-                              <Button
-                                component={Link}
-                                href={`/pedidos/${row.id}`}
-                                size="small"
-                                startIcon={<VisibilityIcon />}
-                                aria-label="Ver"
-                              >
+                        <TableCell>{row.category?.name ?? "—"}</TableCell>
+                        <TableCell className="text-right">
+                          {formatPrice(row.price)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="sm:hidden">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-12"
+                                  aria-label="Acciones"
+                                >
+                                  <MoreVertical className="size-5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-40">
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/pedidos/${row.id}`}>
+                                    <Eye className="size-4" />
+                                    Ver
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-green-700 focus:text-green-700"
+                                  disabled={
+                                    row.status === "CANCELLED" ||
+                                    row.status === "COMPLETE"
+                                  }
+                                  onClick={() => openCompleteModal(row)}
+                                >
+                                  <CheckCircle className="size-4 text-green-600" />
+                                  Completar orden
+                                </DropdownMenuItem>
+                                {row.status === "CANCELLED" ? (
+                                  <DropdownMenuItem disabled>
+                                    <Pencil className="size-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/editar-pedido/${row.id}`}>
+                                      <Pencil className="size-4" />
+                                      Editar
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={
+                                    row.status === "CANCELLED" ||
+                                    row.status === "COMPLETE"
+                                  }
+                                  onClick={() => openCancelModal(row)}
+                                >
+                                  <XCircle className="size-4" />
+                                  Cancelar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <div className="hidden flex-wrap justify-end gap-1 sm:flex">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/pedidos/${row.id}`}>
+                                <Eye className="size-4" />
                                 Ver
-                              </Button>
-                              <Button
-                                size="small"
-                                color="success"
-                                variant="contained"
-                                startIcon={<CheckCircleIcon />}
-                                disabled={
-                                  row.status === "CANCELLED" ||
-                                  row.status === "COMPLETE"
-                                }
-                                onClick={() => openCompleteModal(row)}
-                                aria-label="Completar orden"
-                              >
-                                Completar
-                              </Button>
-                              <Button
-                                component={Link}
-                                href={`/editar-pedido/${row.id}`}
-                                size="small"
-                                variant="outlined"
-                                startIcon={<EditIcon />}
-                                disabled={row.status === "CANCELLED"}
-                                aria-label="Editar"
-                              >
+                              </Link>
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              disabled={
+                                row.status === "CANCELLED" ||
+                                row.status === "COMPLETE"
+                              }
+                              onClick={() => openCompleteModal(row)}
+                              aria-label="Completar orden"
+                            >
+                              <CheckCircle className="size-4" />
+                              Completar
+                            </Button>
+                            {row.status === "CANCELLED" ? (
+                              <Button variant="outline" size="sm" disabled>
+                                <Pencil className="size-4" />
                                 Editar
                               </Button>
-                              <Button
-                                size="small"
-                                color="error"
-                                variant="contained"
-                                startIcon={<CancelIcon />}
-                                disabled={
-                                  row.status === "CANCELLED" ||
-                                  row.status === "COMPLETE"
-                                }
-                                onClick={() => openCancelModal(row)}
-                                aria-label="Cancelar"
-                              >
-                                Cancelar
+                            ) : (
+                              <Button variant="outline" size="sm" asChild>
+                                <Link href={`/editar-pedido/${row.id}`}>
+                                  <Pencil className="size-4" />
+                                  Editar
+                                </Link>
                               </Button>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                            )}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={
+                                row.status === "CANCELLED" ||
+                                row.status === "COMPLETE"
+                              }
+                              onClick={() => openCancelModal(row)}
+                              aria-label="Cancelar"
+                            >
+                              <XCircle className="size-4" />
+                              Cancelar
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </>
           )}
         </CardContent>
       </Card>
-
-      <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={closeActionsMenu}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{ paper: { sx: { minWidth: 160 } } }}
-      >
-        <MenuItem
-          component={Link}
-          href={menuOrder ? `/pedidos/${menuOrder.id}` : "#"}
-          onClick={closeActionsMenu}
-          sx={{ minHeight: 48, py: 1.5 }}
-        >
-          <VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />
-          Ver
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (menuOrder) openCompleteModal(menuOrder);
-            closeActionsMenu();
-          }}
-          disabled={
-            menuOrder?.status === "CANCELLED" ||
-            menuOrder?.status === "COMPLETE"
-          }
-          sx={{ minHeight: 48, py: 1.5, color: "success.main" }}
-        >
-          <CheckCircleIcon sx={{ mr: 1.5, fontSize: 20 }} />
-          Completar orden
-        </MenuItem>
-        <MenuItem
-          component={Link}
-          href={menuOrder ? `/editar-pedido/${menuOrder.id}` : "#"}
-          onClick={closeActionsMenu}
-          disabled={menuOrder?.status === "CANCELLED"}
-          sx={{ minHeight: 48, py: 1.5 }}
-        >
-          <EditIcon sx={{ mr: 1.5, fontSize: 20 }} />
-          Editar
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (menuOrder) openCancelModal(menuOrder);
-            closeActionsMenu();
-          }}
-          disabled={menuOrder?.status === "CANCELLED"}
-          sx={{
-            minHeight: 48,
-            py: 1.5,
-            color: "error.main",
-          }}
-        >
-          <CancelIcon sx={{ mr: 1.5, fontSize: 20 }} />
-          Cancelar
-        </MenuItem>
-      </Menu>
 
       <CompleteOrderModal
         open={completeModalOpen}
@@ -947,46 +867,41 @@ function ListarPedidosContent() {
         clientDni={orderToComplete?.client_dni ?? null}
       />
 
-      <Dialog open={cancelModalOpen} onClose={closeCancelModal}>
-        <DialogTitle>Cancelar pedido</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            ¿Estás seguro de que deseas cancelar el pedido de{" "}
-            <strong>{orderToCancel?.clientName}</strong>? Esta acción no se
-            puede deshacer.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeCancelModal} disabled={cancelling}>
-            No
-          </Button>
-          <Button
-            onClick={handleConfirmCancel}
-            color="error"
-            variant="contained"
-            disabled={cancelling}
-          >
-            {cancelling ? "Cancelando..." : "Sí, cancelar pedido"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={successSnackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSuccessSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      <Dialog
+        open={cancelModalOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) closeCancelModal();
+          else setCancelModalOpen(true);
+        }}
       >
-        <Alert
-          onClose={() => setSuccessSnackbarOpen(false)}
-          severity="success"
-          variant="filled"
-          sx={{ width: "100%" }}
-        >
-          Pedido creado correctamente
-        </Alert>
-      </Snackbar>
-    </Box>
+        <DialogContent showCloseButton={!cancelling}>
+          <DialogHeader>
+            <DialogTitle>Cancelar pedido</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas cancelar el pedido de{" "}
+              <strong>{orderToCancel?.clientName}</strong>? Esta acción no se
+              puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeCancelModal}
+              disabled={cancelling}
+            >
+              No
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? "Cancelando..." : "Sí, cancelar pedido"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

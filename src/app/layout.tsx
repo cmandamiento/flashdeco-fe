@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
-import ThemeRegistry from "./ThemeRegistry";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,13 +33,11 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ThemeRegistry>
-          <Suspense fallback={null}>
-            <AuthGuard>
-              <AppShell>{children}</AppShell>
-            </AuthGuard>
-          </Suspense>
-        </ThemeRegistry>
+        <Suspense fallback={null}>
+          <AuthGuard>
+            <AppShell>{children}</AppShell>
+          </AuthGuard>
+        </Suspense>
       </body>
     </html>
   );

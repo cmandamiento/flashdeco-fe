@@ -1,31 +1,28 @@
 "use client";
 
-import MenuIcon from "@mui/icons-material/Menu";
-import {
-  AppBar as MuiAppBar,
-  Box,
-  Drawer,
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-} from "@mui/material";
+import { Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { removeToken } from "@/lib/auth";
 import { NAV_ACTIONS, NAV_ICONS, type NavAction } from "@/lib/navActions";
+import { cn } from "@/lib/utils";
 
 export function AppBarNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const handleAction = async (action: NavAction) => {
-    setDrawerOpen(false);
+    setSheetOpen(false);
     if (action.isLogout) {
       removeToken();
       router.push("/login");
@@ -37,18 +34,18 @@ export function AppBarNav() {
 
   return (
     <>
-      <MuiAppBar position="static" sx={{ bgcolor: "#ff879c" }}>
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={() => setDrawerOpen(true)}
-            sx={{ mr: 2 }}
+      <header className="bg-[#ff879c] text-white shadow-sm">
+        <div className="flex h-14 items-center px-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSheetOpen(true)}
+            className="mr-2 text-white hover:bg-white/20 hover:text-white"
             aria-label="abrir menú"
           >
-            <MenuIcon />
-          </IconButton>
-          <Link href="/" style={{ display: "flex", alignItems: "center" }}>
+            <Menu className="size-5" />
+          </Button>
+          <Link href="/" className="flex items-center">
             <Image
               src="/logo-flash.png"
               alt="FlashDeco"
@@ -58,35 +55,48 @@ export function AppBarNav() {
               priority
             />
           </Link>
-        </Toolbar>
-      </MuiAppBar>
+        </div>
+      </header>
 
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        PaperProps={{ sx: { minWidth: 280 } }}
-      >
-        <Box sx={{ overflow: "auto", pt: 2 }}>
-          <List>
-            {NAV_ACTIONS.map((action: NavAction) => (
-              <ListItemButton
-                key={action.title}
-                onClick={() => handleAction(action)}
-                selected={pathname === action.href && !action.isLogout}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  {NAV_ICONS[action.iconKey]}
-                </ListItemIcon>
-                <ListItemText
-                  primary={action.title}
-                  secondary={action.description}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        </Box>
-      </Drawer>
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="left" className="min-w-[280px] w-[280px] p-0">
+          <SheetHeader className="border-b px-4 py-4">
+            <SheetTitle>Menú</SheetTitle>
+          </SheetHeader>
+          <nav className="overflow-auto py-2">
+            <ul className="flex flex-col">
+              {NAV_ACTIONS.map((action: NavAction) => {
+                const selected =
+                  pathname === action.href && !action.isLogout;
+                return (
+                  <li key={action.title}>
+                    <button
+                      type="button"
+                      onClick={() => handleAction(action)}
+                      className={cn(
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent",
+                        selected && "bg-accent",
+                      )}
+                    >
+                      <span className="mt-0.5 shrink-0 text-primary">
+                        {NAV_ICONS[action.iconKey]}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">
+                          {action.title}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {action.description}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

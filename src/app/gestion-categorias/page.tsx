@@ -1,29 +1,29 @@
 "use client";
 
+import { Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  Snackbar,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  TextField,
-  Typography,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 
@@ -41,7 +41,6 @@ export default function GestionCategoriasPage() {
   const [saving, setSaving] = useState(false);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -94,7 +93,7 @@ export default function GestionCategoriasPage() {
         }),
       });
       if (!res.ok) throw new Error("No se pudo guardar la temática");
-      setSnackbarOpen(true);
+      toast.success("Temática guardada correctamente");
       closeModal();
       await fetchCategories();
     } catch (e) {
@@ -105,128 +104,97 @@ export default function GestionCategoriasPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 2 }}
-      >
-        Volver
-      </Button>
-
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4" component="h1">
-          Gestión de temáticas
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openModal}>
-          Agregar temática
-        </Button>
-      </Box>
+    <div className="mx-auto max-w-3xl p-6">
+      <PageHeader
+        title="Gestión de temáticas"
+        backHref="/"
+        backLabel="Volver"
+        action={
+          <Button onClick={openModal}>
+            <Plus className="size-4" />
+            Agregar temática
+          </Button>
+        }
+      />
 
       <Card>
-        <CardContent sx={{ p: 0 }}>
-          {error && (
-            <Typography color="error" sx={{ p: 2 }}>
-              {error}
-            </Typography>
-          )}
+        <CardContent className="p-0">
+          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
           {loading ? (
-            <Typography color="text.secondary" sx={{ p: 3 }}>
-              Cargando temáticas...
-            </Typography>
+            <p className="p-6 text-muted-foreground">Cargando temáticas...</p>
           ) : (
-            <TableContainer>
-              <Table size="medium">
-                <TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Descripción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categories.length === 0 ? (
                   <TableRow>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Descripción</TableCell>
+                    <TableCell colSpan={2} className="py-8 text-center">
+                      <span className="text-muted-foreground">
+                        No hay temáticas registradas
+                      </span>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {categories.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
-                          No hay temáticas registradas
-                        </Typography>
-                      </TableCell>
+                ) : (
+                  categories.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.description ?? "-"}</TableCell>
                     </TableRow>
-                  ) : (
-                    categories.map((row) => (
-                      <TableRow key={row.id} hover>
-                        <TableCell>{row.name}</TableCell>
-                        <TableCell>{row.description ?? "—"}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={modalOpen} onClose={closeModal} maxWidth="sm" fullWidth>
-        <DialogTitle>Agregar temática</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-            <TextField
-              label="Nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              required
-              fullWidth
-              autoFocus
-            />
-            <TextField
-              label="Descripción"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              multiline
-              rows={3}
-              fullWidth
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeModal} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={saving || !nombre.trim()}
-          >
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) closeModal();
+          else setModalOpen(true);
+        }}
       >
-        <Alert
-          onClose={() => setSnackbarOpen(false)}
-          severity="success"
-          variant="filled"
-        >
-          Temática guardada correctamente
-        </Alert>
-      </Snackbar>
-    </Box>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar temática</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="categoria-nombre">Nombre</Label>
+              <Input
+                id="categoria-nombre"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="categoria-descripcion">Descripción</Label>
+              <Textarea
+                id="categoria-descripcion"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !nombre.trim()}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

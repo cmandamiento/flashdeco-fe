@@ -1,52 +1,51 @@
 "use client";
 
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Alert,
-  Backdrop,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Checkbox,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  Drawer,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Radio,
-  RadioGroup,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
-import Grid from "@mui/material/Grid2";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import SaveIcon from "@mui/icons-material/Save";
+import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useMemo, useEffect } from "react";
-import { API_BASE_URL } from "@/lib/config";
-import { getAuthHeaders } from "@/lib/auth";
-import { parseOrderImageList } from "@/lib/orderImages";
 import {
   CompleteOrderModal,
   type CompleteOrderPayload,
 } from "@/components/CompleteOrderModal";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
+import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/auth";
+import { parseOrderImageList } from "@/lib/orderImages";
+import { cn } from "@/lib/utils";
 
 export type Category = {
   id: number;
@@ -119,6 +118,46 @@ const defaultInitial: OrderFormInitialValues = {
 };
 
 type QuoteCalcLine = { label: string; amount: number };
+
+type YesNoValue = "si" | "no";
+
+function YesNoRadioGroup({
+  name,
+  legend,
+  value,
+  onChange,
+}: {
+  name: string;
+  legend: string;
+  value: YesNoValue;
+  onChange: (value: YesNoValue) => void;
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">{legend}</legend>
+      <div className="flex gap-4">
+        {(["si", "no"] as const).map((opt) => (
+          <label
+            key={opt}
+            htmlFor={`${name}-${opt}`}
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <input
+              id={`${name}-${opt}`}
+              type="radio"
+              name={name}
+              value={opt}
+              checked={value === opt}
+              onChange={() => onChange(opt)}
+              className="size-4 accent-primary"
+            />
+            <span className="text-sm">{opt === "si" ? "Sí" : "No"}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 async function uploadImageFiles(files: File[]): Promise<string[]> {
   const urls: string[] = [];
@@ -259,11 +298,11 @@ export function OrderForm({
   const [categorySaving, setCategorySaving] = useState(false);
   const [quoteHelpOpen, setQuoteHelpOpen] = useState(false);
   const [qhScreens, setQhScreens] = useState("");
-  const [qhFoamNuevo, setQhFoamNuevo] = useState<"si" | "no">("no");
-  const [qhFoamPers, setQhFoamPers] = useState<"si" | "no">("no");
-  const [qhAlquiler, setQhAlquiler] = useState<"si" | "no">("no");
+  const [qhFoamNuevo, setQhFoamNuevo] = useState<YesNoValue>("no");
+  const [qhFoamPers, setQhFoamPers] = useState<YesNoValue>("no");
+  const [qhAlquiler, setQhAlquiler] = useState<YesNoValue>("no");
   const [qhAlquilerMonto, setQhAlquilerMonto] = useState("");
-  const [qhFueraHuacho, setQhFueraHuacho] = useState<"si" | "no">("no");
+  const [qhFueraHuacho, setQhFueraHuacho] = useState<YesNoValue>("no");
   const [qhCalcResult, setQhCalcResult] = useState<{
     lines: QuoteCalcLine[];
     subtotal: number;
@@ -613,317 +652,308 @@ export function OrderForm({
 
   return (
     <>
-      <Backdrop
-        open={clientLookupLoading}
-        sx={{
-          color: "#fff",
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          flexDirection: "column",
-          gap: 2,
-        }}
-      >
-        <CircularProgress color="inherit" />
-        <Typography variant="body1">Buscando cliente...</Typography>
-      </Backdrop>
-      <Card component="form" onSubmit={handleSubmit}>
-        <CardContent sx={{ p: 3 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          {success && mode === "edit" && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {successMessage}
-            </Alert>
-          )}
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="DNI (8 dígitos, opcional)"
+      {clientLookupLoading && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/50 text-white">
+          <Loader2 className="size-8 animate-spin" />
+          <p className="text-base">Buscando cliente...</p>
+        </div>
+      )}
+
+      <Card>
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {error && (
+              <Alert variant="destructive" className="col-span-full">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {success && mode === "edit" && (
+              <Alert className="col-span-full border-green-200 bg-green-50 text-green-900">
+                <AlertDescription>{successMessage}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="dni">DNI (8 dígitos, opcional)</Label>
+              <Input
+                id="dni"
                 value={dni}
                 onChange={(e) => handleDniChange(e.target.value)}
-                inputProps={{ maxLength: 8, inputMode: "numeric" }}
-                helperText="Al ingresar 8 dígitos se busca el cliente automáticamente"
+                maxLength={8}
+                inputMode="numeric"
               />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Nombre del cliente"
+              <p className="text-xs text-muted-foreground">
+                Al ingresar 8 dígitos se busca el cliente automáticamente
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="clientName">Nombre del cliente</Label>
+              <Input
+                id="clientName"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 required
-                InputProps={{ readOnly: clientFoundByDni }}
-                helperText={
-                  clientFoundByDni ? "Cliente encontrado por DNI" : undefined
-                }
+                readOnly={clientFoundByDni}
               />
-            </Grid>
+              {clientFoundByDni && (
+                <p className="text-xs text-muted-foreground">
+                  Cliente encontrado por DNI
+                </p>
+              )}
+            </div>
 
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Teléfono"
+            <div className="space-y-2">
+              <Label htmlFor="phone">Teléfono</Label>
+              <Input
+                id="phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
               />
-            </Grid>
+            </div>
 
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Fecha"
+            <div className="space-y-2">
+              <Label htmlFor="date">Fecha</Label>
+              <Input
+                id="date"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                slotProps={{
-                  inputLabel: { shrink: true },
-                  htmlInput:
-                    registerPastEvent || merged.status === "COMPLETE"
-                      ? undefined
-                      : { min: minDate },
-                }}
+                min={
+                  registerPastEvent || merged.status === "COMPLETE"
+                    ? undefined
+                    : minDate
+                }
                 required
-                helperText={
-                  registerPastEvent
-                    ? "Se permiten fechas pasadas"
-                    : "No se permiten fechas pasadas"
-                }
               />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={registerPastEvent}
-                    onChange={(e) => setRegisterPastEvent(e.target.checked)}
-                    color="primary"
-                  />
-                }
-                label="Registrar evento pasado"
-                sx={{ mt: 1, display: "block" }}
-              />
+              <p className="text-xs text-muted-foreground">
+                {registerPastEvent
+                  ? "Se permiten fechas pasadas"
+                  : "No se permiten fechas pasadas"}
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <Checkbox
+                  id="registerPastEvent"
+                  checked={registerPastEvent}
+                  onCheckedChange={(checked) =>
+                    setRegisterPastEvent(checked === true)
+                  }
+                />
+                <Label htmlFor="registerPastEvent" className="cursor-pointer font-normal">
+                  Registrar evento pasado
+                </Label>
+              </div>
               {loadingEvents && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 1 }}
-                >
+                <p className="mt-2 text-sm text-muted-foreground">
                   Buscando eventos...
-                </Typography>
+                </p>
               )}
               {!loadingEvents && eventsOnSelectedDate.length > 0 && (
                 <Alert
-                  severity="info"
-                  sx={{ mt: 1.5, cursor: "pointer" }}
+                  className="mt-3 cursor-pointer border-blue-200 bg-blue-50 transition-colors hover:bg-blue-100"
                   onClick={() => setEventsDrawerOpen(true)}
                 >
-                  Tienes {eventsOnSelectedDate.length} evento(s) registrados ese
-                  día, click aquí para mostrarlos
+                  <AlertDescription>
+                    Tienes {eventsOnSelectedDate.length} evento(s) registrados ese
+                    día, click aquí para mostrarlos
+                  </AlertDescription>
                 </Alert>
               )}
-            </Grid>
+            </div>
 
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Dirección"
+            <div className="col-span-full space-y-2">
+              <Label htmlFor="address">Dirección</Label>
+              <Input
+                id="address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 required
               />
-            </Grid>
+            </div>
 
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Descripción"
-                multiline
+            <div className="col-span-full space-y-2">
+              <Label htmlFor="description">Descripción</Label>
+              <Textarea
+                id="description"
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Detalle del pedido..."
               />
-            </Grid>
+            </div>
 
-            <Grid size={{ xs: 12 }}>
-              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
-                <FormControl fullWidth required sx={{ flex: 1 }}>
-                  <InputLabel id="category-label">Temática</InputLabel>
+            <div className="col-span-full space-y-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="category">Temática</Label>
                   <Select
-                    labelId="category-label"
-                    label="Temática"
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    displayEmpty
+                    value={categoryId || undefined}
+                    onValueChange={setCategoryId}
+                    required
                   >
-                    <MenuItem value="" disabled>
-                      <em></em>
-                    </MenuItem>
-                    {categories.map((cat) => (
-                      <MenuItem key={cat.id} value={String(cat.id)}>
-                        {cat.name}
-                      </MenuItem>
-                    ))}
+                    <SelectTrigger id="category" className="w-full">
+                      <SelectValue placeholder="Seleccionar temática" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={String(cat.id)}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
-                </FormControl>
-                <IconButton
-                  color="primary"
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  title="Agregar temática"
                   onClick={() => {
                     setCategoryNombre("");
                     setCategoryDescripcion("");
                     setCategoryModalOpen(true);
                   }}
-                  title="Agregar temática"
-                  sx={{ mt: 1 }}
                 >
-                  <AddIcon />
-                </IconButton>
-              </Box>
+                  <Plus className="size-4" />
+                </Button>
+              </div>
 
               <Dialog
                 open={categoryModalOpen}
-                onClose={() => !categorySaving && setCategoryModalOpen(false)}
-                maxWidth="sm"
-                fullWidth
+                onOpenChange={(open) => {
+                  if (!open && !categorySaving) setCategoryModalOpen(false);
+                }}
               >
-                <DialogTitle>Agregar temática</DialogTitle>
-                <DialogContent>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                      pt: 1,
-                    }}
-                  >
-                    <TextField
-                      label="Nombre"
-                      value={categoryNombre}
-                      onChange={(e) => setCategoryNombre(e.target.value)}
-                      required
-                      fullWidth
-                      autoFocus
-                    />
-                    <TextField
-                      label="Descripción"
-                      value={categoryDescripcion}
-                      onChange={(e) => setCategoryDescripcion(e.target.value)}
-                      multiline
-                      rows={3}
-                      fullWidth
-                    />
-                  </Box>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Agregar temática</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="categoryNombre">Nombre</Label>
+                      <Input
+                        id="categoryNombre"
+                        value={categoryNombre}
+                        onChange={(e) => setCategoryNombre(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="categoryDescripcion">Descripción</Label>
+                      <Textarea
+                        id="categoryDescripcion"
+                        value={categoryDescripcion}
+                        onChange={(e) => setCategoryDescripcion(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCategoryModalOpen(false)}
+                      disabled={categorySaving}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={categorySaving || !categoryNombre.trim()}
+                      onClick={async () => {
+                        if (!categoryNombre.trim()) return;
+                        setCategorySaving(true);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/categories`, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              ...getAuthHeaders(),
+                            },
+                            credentials: "omit",
+                            body: JSON.stringify({
+                              name: categoryNombre.trim(),
+                              description: categoryDescripcion.trim() || null,
+                            }),
+                          });
+                          if (!res.ok) throw new Error("No se pudo guardar");
+                          const newCat = await res.json();
+                          await fetchCategories();
+                          setCategoryId(String(newCat.id));
+                          setCategoryModalOpen(false);
+                        } catch {
+                          setError("No se pudo crear la temática");
+                        } finally {
+                          setCategorySaving(false);
+                        }
+                      }}
+                    >
+                      {categorySaving ? "Guardando..." : "Guardar"}
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                  <Button
-                    onClick={() => setCategoryModalOpen(false)}
-                    disabled={categorySaving}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      if (!categoryNombre.trim()) return;
-                      setCategorySaving(true);
-                      try {
-                        const res = await fetch(`${API_BASE_URL}/categories`, {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            ...getAuthHeaders(),
-                          },
-                          credentials: "omit",
-                          body: JSON.stringify({
-                            name: categoryNombre.trim(),
-                            description: categoryDescripcion.trim() || null,
-                          }),
-                        });
-                        if (!res.ok) throw new Error("No se pudo guardar");
-                        const newCat = await res.json();
-                        await fetchCategories();
-                        setCategoryId(String(newCat.id));
-                        setCategoryModalOpen(false);
-                      } catch {
-                        setError("No se pudo crear la temática");
-                      } finally {
-                        setCategorySaving(false);
-                      }
-                    }}
-                    variant="contained"
-                    disabled={categorySaving || !categoryNombre.trim()}
-                  >
-                    {categorySaving ? "Guardando..." : "Guardar"}
-                  </Button>
-                </DialogActions>
               </Dialog>
-            </Grid>
+            </div>
 
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <div className="col-span-full space-y-2">
+              <Label>
                 Imágenes referenciales
                 {referenceRequired && (
-                  <span style={{ color: "var(--mui-palette-error-main)" }}>
-                    {" "}
-                    *
-                  </span>
+                  <span className="text-destructive"> *</span>
                 )}
-              </Typography>
+              </Label>
               <Button
-                variant="outlined"
-                component="label"
-                fullWidth
-                color={
-                  referencePreviewUrls.length === 0 ? "error" : "primary"
-                }
-                startIcon={<AddIcon />}
+                type="button"
+                variant="outline"
+                className={cn(
+                  "w-full",
+                  referencePreviewUrls.length === 0 &&
+                    referenceRequired &&
+                    "border-destructive text-destructive hover:bg-destructive/10",
+                )}
+                asChild
               >
-                Agregar imágenes
-                <input
-                  type="file"
-                  hidden
-                  multiple
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={(e) => {
-                    const picked = Array.from(e.target.files ?? []);
-                    if (picked.length) {
-                      setNewReferenceFiles((prev) => [...prev, ...picked]);
-                    }
-                    e.target.value = "";
-                  }}
-                />
+                <label className="cursor-pointer">
+                  <Plus className="size-4" />
+                  Agregar imágenes
+                  <input
+                    type="file"
+                    className="hidden"
+                    multiple
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files ?? []);
+                      if (picked.length) {
+                        setNewReferenceFiles((prev) => [...prev, ...picked]);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
               </Button>
               {referencePreviewUrls.length > 0 && (
-                <Stack spacing={1.5} sx={{ mt: 2 }}>
+                <div className="mt-4 flex flex-col gap-3">
                   {referencePreviewUrls.map((src, index) => {
                     const isExisting = index < existingReferenceUrls.length;
                     return (
-                      <Box
+                      <div
                         key={`${src}-${index}`}
-                        sx={{
-                          position: "relative",
-                          borderRadius: 1,
-                          border: "1px solid",
-                          borderColor: "divider",
-                          overflow: "hidden",
-                        }}
+                        className="relative overflow-hidden rounded-md border"
                       >
-                        <Box
-                          component="img"
+                        <img
                           src={src}
                           alt={`Referencia ${index + 1}`}
-                          sx={{
-                            width: "100%",
-                            maxHeight: 240,
-                            objectFit: "contain",
-                            display: "block",
-                          }}
+                          className="block max-h-60 w-full object-contain"
                         />
-                        <IconButton
-                          size="small"
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon-sm"
                           aria-label="Quitar imagen referencial"
+                          className="absolute top-2 right-2"
                           onClick={() => {
                             if (isExisting) {
                               setExistingReferenceUrls((prev) =>
@@ -937,82 +967,58 @@ export function OrderForm({
                               );
                             }
                           }}
-                          sx={{
-                            position: "absolute",
-                            top: 8,
-                            right: 8,
-                            bgcolor: "background.paper",
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
                         >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
                     );
                   })}
-                </Stack>
+                </div>
               )}
-            </Grid>
+            </div>
 
             {isEdit && (
-              <Grid size={{ xs: 12 }}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 1 }}
-                >
-                  Fotos de resultado final
-                </Typography>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                  startIcon={<AddIcon />}
-                >
-                  Agregar fotos de resultado
-                  <input
-                    type="file"
-                    hidden
-                    multiple
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={(e) => {
-                      const picked = Array.from(e.target.files ?? []);
-                      if (picked.length) {
-                        setNewResultFiles((prev) => [...prev, ...picked]);
-                      }
-                      e.target.value = "";
-                    }}
-                  />
+              <div className="col-span-full space-y-2">
+                <Label>Fotos de resultado final</Label>
+                <Button type="button" variant="outline" className="w-full" asChild>
+                  <label className="cursor-pointer">
+                    <Plus className="size-4" />
+                    Agregar fotos de resultado
+                    <input
+                      type="file"
+                      className="hidden"
+                      multiple
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={(e) => {
+                        const picked = Array.from(e.target.files ?? []);
+                        if (picked.length) {
+                          setNewResultFiles((prev) => [...prev, ...picked]);
+                        }
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
                 </Button>
                 {resultPreviewUrls.length > 0 && (
-                  <Stack spacing={1.5} sx={{ mt: 2 }}>
+                  <div className="mt-4 flex flex-col gap-3">
                     {resultPreviewUrls.map((src, index) => {
                       const isExisting = index < existingResultUrls.length;
                       return (
-                        <Box
+                        <div
                           key={`${src}-${index}`}
-                          sx={{
-                            position: "relative",
-                            borderRadius: 1,
-                            border: "1px solid",
-                            borderColor: "divider",
-                            overflow: "hidden",
-                          }}
+                          className="relative overflow-hidden rounded-md border"
                         >
-                          <Box
-                            component="img"
+                          <img
                             src={src}
                             alt={`Resultado ${index + 1}`}
-                            sx={{
-                              width: "100%",
-                              maxHeight: 240,
-                              objectFit: "contain",
-                              display: "block",
-                            }}
+                            className="block max-h-60 w-full object-contain"
                           />
-                          <IconButton
-                            size="small"
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-sm"
                             aria-label="Quitar imagen de resultado"
+                            className="absolute top-2 right-2"
                             onClick={() => {
                               if (isExisting) {
                                 setExistingResultUrls((prev) =>
@@ -1026,470 +1032,321 @@ export function OrderForm({
                                 );
                               }
                             }}
-                            sx={{
-                              position: "absolute",
-                              top: 8,
-                              right: 8,
-                              bgcolor: "background.paper",
-                              "&:hover": { bgcolor: "action.hover" },
-                            }}
                           >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       );
                     })}
-                  </Stack>
+                  </div>
                 )}
-              </Grid>
+              </div>
             )}
 
             {isEdit && (
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="Observaciones"
-                  multiline
+              <div className="col-span-full space-y-2">
+                <Label htmlFor="observations">Observaciones</Label>
+                <Textarea
+                  id="observations"
                   rows={4}
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
                   placeholder="Observaciones sobre el pedido..."
                 />
-              </Grid>
+              </div>
             )}
 
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth
-                label="Cotización S/."
-                type="number"
-                value={quote}
-                onChange={(e) => setQuote(e.target.value)}
-                required
-                slotProps={{
-                  htmlInput: { min: 0, step: 0.01 },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Typography color="text.secondary">S/.</Typography>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="quote">Cotización S/.</Label>
+              <div className="relative">
+                <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                  S/.
+                </span>
+                <Input
+                  id="quote"
+                  type="number"
+                  className="pl-10"
+                  value={quote}
+                  onChange={(e) => setQuote(e.target.value)}
+                  min={0}
+                  step={0.01}
+                  required
+                />
+              </div>
+            </div>
 
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth
-                label="A cuenta S/."
-                type="number"
-                value={deposit}
-                onChange={(e) => setDeposit(e.target.value)}
-                slotProps={{
-                  htmlInput: { min: 0, step: 0.01 },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Typography color="text.secondary">S/.</Typography>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="deposit">A cuenta S/.</Label>
+              <div className="relative">
+                <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                  S/.
+                </span>
+                <Input
+                  id="deposit"
+                  type="number"
+                  className="pl-10"
+                  value={deposit}
+                  onChange={(e) => setDeposit(e.target.value)}
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+            </div>
 
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth
-                label="Pendiente S/."
-                value={balance.toFixed(2)}
-                slotProps={{
-                  htmlInput: { readOnly: true },
-                  input: {
-                    readOnly: true,
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Typography color="text.secondary">S/.</Typography>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="balance">Pendiente S/.</Label>
+              <div className="relative">
+                <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                  S/.
+                </span>
+                <Input
+                  id="balance"
+                  className="pl-10"
+                  value={balance.toFixed(2)}
+                  readOnly
+                />
+              </div>
+            </div>
 
             {!isEdit && (
-              <Grid size={{ xs: 12 }}>
-                <Alert
-                  severity="info"
-                  variant="outlined"
-                  sx={{
-                    cursor: "pointer",
-                    transition: "background-color 0.2s",
-                    "&:hover": { bgcolor: "action.hover" },
-                  }}
-                  onClick={() => {
-                    resetQuoteHelpModal();
-                    setQuoteHelpOpen(true);
-                  }}
-                >
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    ¿Dudas sobre cotización?
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Abre el asistente para estimar la cotización según pantallas,
-                    foam, alquiler y ubicación.
-                  </Typography>
-                </Alert>
-              </Grid>
+              <Alert
+                className="col-span-full cursor-pointer border-blue-200 bg-blue-50 transition-colors hover:bg-blue-100"
+                onClick={() => {
+                  resetQuoteHelpModal();
+                  setQuoteHelpOpen(true);
+                }}
+              >
+                <AlertTitle>¿Dudas sobre cotización?</AlertTitle>
+                <AlertDescription>
+                  Abre el asistente para estimar la cotización según pantallas,
+                  foam, alquiler y ubicación.
+                </AlertDescription>
+              </Alert>
             )}
 
-            <Grid size={12}>
-              <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  disabled={loading}
-                >
-                  {loading ? savingLabel : submitLabel}
-                </Button>
-                <Button component={Link} href={cancelHref} variant="outlined">
-                  Cancelar
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+            <div className="col-span-full mt-2 flex gap-4">
+              <Button type="submit" disabled={loading}>
+                <Save className="size-4" />
+                {loading ? savingLabel : submitLabel}
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href={cancelHref}>Cancelar</Link>
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
 
       {!isEdit && (
-      <Dialog
-        open={quoteHelpOpen}
-        onClose={handleQuoteHelpDecline}
-        maxWidth="sm"
-        fullWidth
-        scroll="paper"
-      >
-        <DialogTitle>¿Dudas sobre cotización?</DialogTitle>
-        <DialogContent dividers>
-          {qhCalcError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {qhCalcError}
-            </Alert>
-          )}
-          <Stack spacing={2.5}>
-            <TextField
-              label="¿Cuántas pantallas tiene?"
-              type="number"
-              fullWidth
-              size="small"
-              value={qhScreens}
-              onChange={(e) => setQhScreens(e.target.value)}
-              slotProps={{
-                htmlInput: { min: 0, step: 1 },
-              }}
-            />
+        <Dialog
+          open={quoteHelpOpen}
+          onOpenChange={(open) => {
+            if (!open) handleQuoteHelpDecline();
+          }}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>¿Dudas sobre cotización?</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-5">
+              {qhCalcError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{qhCalcError}</AlertDescription>
+                </Alert>
+              )}
 
-            <FormControl component="fieldset" variant="standard">
-              <FormLabel component="legend">¿Incluye foam nuevo?</FormLabel>
-              <RadioGroup
-                row
+              <div className="space-y-2">
+                <Label htmlFor="qhScreens">¿Cuántas pantallas tiene?</Label>
+                <Input
+                  id="qhScreens"
+                  type="number"
+                  value={qhScreens}
+                  onChange={(e) => setQhScreens(e.target.value)}
+                  min={0}
+                  step={1}
+                />
+              </div>
+
+              <YesNoRadioGroup
                 name="foam-nuevo"
+                legend="¿Incluye foam nuevo?"
                 value={qhFoamNuevo}
-                onChange={(e) =>
-                  setQhFoamNuevo(e.target.value as "si" | "no")
-                }
-              >
-                <FormControlLabel
-                  value="si"
-                  control={<Radio size="small" />}
-                  label="Sí"
-                />
-                <FormControlLabel
-                  value="no"
-                  control={<Radio size="small" />}
-                  label="No"
-                />
-              </RadioGroup>
-            </FormControl>
-
-            <FormControl component="fieldset" variant="standard">
-              <FormLabel component="legend">
-                ¿Incluye foam personalizado?
-              </FormLabel>
-              <RadioGroup
-                row
-                name="foam-pers"
-                value={qhFoamPers}
-                onChange={(e) => setQhFoamPers(e.target.value as "si" | "no")}
-              >
-                <FormControlLabel
-                  value="si"
-                  control={<Radio size="small" />}
-                  label="Sí"
-                />
-                <FormControlLabel
-                  value="no"
-                  control={<Radio size="small" />}
-                  label="No"
-                />
-              </RadioGroup>
-            </FormControl>
-
-            <FormControl component="fieldset" variant="standard">
-              <FormLabel component="legend">
-                ¿Requiere alquiler de mobiliario / telas?
-              </FormLabel>
-              <RadioGroup
-                row
-                name="alquiler"
-                value={qhAlquiler}
-                onChange={(e) =>
-                  setQhAlquiler(e.target.value as "si" | "no")
-                }
-              >
-                <FormControlLabel
-                  value="si"
-                  control={<Radio size="small" />}
-                  label="Sí"
-                />
-                <FormControlLabel
-                  value="no"
-                  control={<Radio size="small" />}
-                  label="No"
-                />
-              </RadioGroup>
-            </FormControl>
-
-            {qhAlquiler === "si" && (
-              <TextField
-                label="¿Cuánto es el costo estimado de alquiler?"
-                type="number"
-                fullWidth
-                size="small"
-                value={qhAlquilerMonto}
-                onChange={(e) => setQhAlquilerMonto(e.target.value)}
-                slotProps={{
-                  htmlInput: { min: 0, step: 0.01 },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Typography color="text.secondary">S/.</Typography>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
+                onChange={setQhFoamNuevo}
               />
-            )}
 
-            <FormControl component="fieldset" variant="standard">
-              <FormLabel component="legend">
-                ¿La decoración está fuera de Huacho?
-              </FormLabel>
-              <RadioGroup
-                row
+              <YesNoRadioGroup
+                name="foam-pers"
+                legend="¿Incluye foam personalizado?"
+                value={qhFoamPers}
+                onChange={setQhFoamPers}
+              />
+
+              <YesNoRadioGroup
+                name="alquiler"
+                legend="¿Requiere alquiler de mobiliario / telas?"
+                value={qhAlquiler}
+                onChange={setQhAlquiler}
+              />
+
+              {qhAlquiler === "si" && (
+                <div className="space-y-2">
+                  <Label htmlFor="qhAlquilerMonto">
+                    ¿Cuánto es el costo estimado de alquiler?
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                      S/.
+                    </span>
+                    <Input
+                      id="qhAlquilerMonto"
+                      type="number"
+                      className="pl-10"
+                      value={qhAlquilerMonto}
+                      onChange={(e) => setQhAlquilerMonto(e.target.value)}
+                      min={0}
+                      step={0.01}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <YesNoRadioGroup
                 name="fuera-huacho"
+                legend="¿La decoración está fuera de Huacho?"
                 value={qhFueraHuacho}
-                onChange={(e) =>
-                  setQhFueraHuacho(e.target.value as "si" | "no")
-                }
-              >
-                <FormControlLabel
-                  value="si"
-                  control={<Radio size="small" />}
-                  label="Sí"
-                />
-                <FormControlLabel
-                  value="no"
-                  control={<Radio size="small" />}
-                  label="No"
-                />
-              </RadioGroup>
-            </FormControl>
+                onChange={setQhFueraHuacho}
+              />
 
-            <Button
-              variant="contained"
-              fullWidth
-              onClick={handleQuoteHelpCalculate}
-            >
-              Calcular
-            </Button>
+              <Button type="button" className="w-full" onClick={handleQuoteHelpCalculate}>
+                Calcular
+              </Button>
 
-            {qhCalcResult && (
-              <>
-                <Divider />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Detalle del cálculo
-                </Typography>
-                <Stack spacing={0.75}>
-                  {qhCalcResult.lines.map((line, i) => (
-                    <Box
-                      key={`${line.label}-${i}`}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: 2,
-                        alignItems: "baseline",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        {line.label}
-                      </Typography>
-                      <Typography variant="body2" component="span" noWrap>
-                        S/. {formatMoneyEs(line.amount)}
-                      </Typography>
-                    </Box>
-                  ))}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      pt: 1,
-                      gap: 2,
-                    }}
-                  >
-                    <Typography variant="body2">Subtotal</Typography>
-                    <Typography variant="body2">
-                      S/. {formatMoneyEs(qhCalcResult.subtotal)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 2,
-                    }}
-                  >
-                    <Typography variant="body2">
-                      15% sobre el subtotal
-                    </Typography>
-                    <Typography variant="body2">
-                      S/. {formatMoneyEs(qhCalcResult.porcentaje15)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      pt: 1,
-                      gap: 2,
-                    }}
-                  >
-                    <Typography fontWeight={700}>Total estimado</Typography>
-                    <Typography fontWeight={700}>
-                      S/. {formatMoneyEs(qhCalcResult.total)}
-                    </Typography>
-                  </Box>
-                </Stack>
+              {qhCalcResult && (
+                <>
+                  <Separator />
+                  <p className="text-sm font-semibold">Detalle del cálculo</p>
+                  <div className="flex flex-col gap-1.5">
+                    {qhCalcResult.lines.map((line, i) => (
+                      <div
+                        key={`${line.label}-${i}`}
+                        className="flex items-baseline justify-between gap-4"
+                      >
+                        <span className="text-sm text-muted-foreground">
+                          {line.label}
+                        </span>
+                        <span className="shrink-0 text-sm">
+                          S/. {formatMoneyEs(line.amount)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between gap-4 pt-2">
+                      <span className="text-sm">Subtotal</span>
+                      <span className="text-sm">
+                        S/. {formatMoneyEs(qhCalcResult.subtotal)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-sm">15% sobre el subtotal</span>
+                      <span className="text-sm">
+                        S/. {formatMoneyEs(qhCalcResult.porcentaje15)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4 pt-2">
+                      <span className="font-bold">Total estimado</span>
+                      <span className="font-bold">
+                        S/. {formatMoneyEs(qhCalcResult.total)}
+                      </span>
+                    </div>
+                  </div>
 
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 1 }}
-                >
-                  ¿Está de acuerdo?
-                </Typography>
-                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                  <Button variant="outlined" onClick={handleQuoteHelpDecline}>
-                    No
-                  </Button>
-                  <Button variant="contained" onClick={handleQuoteHelpAccept}>
-                    Sí
-                  </Button>
-                </Stack>
-              </>
-            )}
-          </Stack>
-        </DialogContent>
-      </Dialog>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    ¿Está de acuerdo?
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={handleQuoteHelpDecline}>
+                      No
+                    </Button>
+                    <Button type="button" onClick={handleQuoteHelpAccept}>
+                      Sí
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
-      <Drawer
-        anchor="right"
-        open={eventsDrawerOpen}
-        onClose={() => setEventsDrawerOpen(false)}
-        slotProps={{ backdrop: { sx: { cursor: "pointer" } } }}
-      >
-        <Box sx={{ width: { xs: "100%", sm: 400 }, p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Eventos del {date || "día"}
-          </Typography>
-          {eventsOnSelectedDate.map((order) => (
-            <Accordion
-              key={order.id}
-              defaultExpanded={false}
-              disableGutters
-              sx={{ "&:before": { display: "none" } }}
-            >
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: 0.25,
-                  }}
-                >
-                  <Typography variant="subtitle2">
-                    {order.clientName}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {order.category?.name ?? "Sin temática"}
-                  </Typography>
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails
-                sx={{ pt: 0, display: "flex", flexDirection: "column", gap: 1 }}
-              >
-                <Typography variant="body2">
-                  <strong>Cliente:</strong> {order.clientName}
-                </Typography>
-                {order.phone && (
-                  <Typography variant="body2">
-                    <strong>Teléfono:</strong> {order.phone}
-                  </Typography>
-                )}
-                <Typography variant="body2">
-                  <strong>Fecha:</strong> {order.date}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Dirección:</strong> {order.address}
-                </Typography>
-                {order.description && (
-                  <Typography variant="body2">
-                    <strong>Descripción:</strong> {order.description}
-                  </Typography>
-                )}
-                <Typography variant="body2">
-                  <strong>Cotización:</strong> S/.{" "}
-                  {Number(order.price).toFixed(2)}
-                </Typography>
-                {order.deposit != null && (
-                  <Typography variant="body2">
-                    <strong>A cuenta:</strong> S/.{" "}
-                    {Number(order.deposit).toFixed(2)}
-                  </Typography>
-                )}
-                {order.balance != null && (
-                  <Typography variant="body2">
-                    <strong>Pendiente:</strong> S/.{" "}
-                    {Number(order.balance).toFixed(2)}
-                  </Typography>
-                )}
-                <Typography variant="body2">
-                  <strong>Estado:</strong> {order.status}
-                </Typography>
-                {order.category && (
-                  <Typography variant="body2">
-                    <strong>Temática:</strong> {order.category.name}
-                  </Typography>
-                )}
-              </AccordionDetails>
-            </Accordion>
-          ))}
-        </Box>
-      </Drawer>
+      <Sheet open={eventsDrawerOpen} onOpenChange={setEventsDrawerOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Eventos del {date || "día"}</SheetTitle>
+          </SheetHeader>
+          <Accordion type="multiple" className="px-1">
+            {eventsOnSelectedDate.map((order) => (
+              <AccordionItem key={order.id} value={String(order.id)}>
+                <AccordionTrigger>
+                  <div className="flex flex-col items-start gap-0.5 text-left">
+                    <span className="text-sm font-semibold">
+                      {order.clientName}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {order.category?.name ?? "Sin temática"}
+                    </span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex flex-col gap-2 text-sm">
+                    <p>
+                      <strong>Cliente:</strong> {order.clientName}
+                    </p>
+                    {order.phone && (
+                      <p>
+                        <strong>Teléfono:</strong> {order.phone}
+                      </p>
+                    )}
+                    <p>
+                      <strong>Fecha:</strong> {order.date}
+                    </p>
+                    <p>
+                      <strong>Dirección:</strong> {order.address}
+                    </p>
+                    {order.description && (
+                      <p>
+                        <strong>Descripción:</strong> {order.description}
+                      </p>
+                    )}
+                    <p>
+                      <strong>Cotización:</strong> S/.{" "}
+                      {Number(order.price).toFixed(2)}
+                    </p>
+                    {order.deposit != null && (
+                      <p>
+                        <strong>A cuenta:</strong> S/.{" "}
+                        {Number(order.deposit).toFixed(2)}
+                      </p>
+                    )}
+                    {order.balance != null && (
+                      <p>
+                        <strong>Pendiente:</strong> S/.{" "}
+                        {Number(order.balance).toFixed(2)}
+                      </p>
+                    )}
+                    <p>
+                      <strong>Estado:</strong> {order.status}
+                    </p>
+                    {order.category && (
+                      <p>
+                        <strong>Temática:</strong> {order.category.name}
+                      </p>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </SheetContent>
+      </Sheet>
 
       <CompleteOrderModal
         open={completePastEventModalOpen}

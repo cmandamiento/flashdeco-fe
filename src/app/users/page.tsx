@@ -1,18 +1,13 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  TextField,
-  Typography,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { API_BASE_URL } from "@/lib/config";
 
 export default function UsersPage() {
@@ -23,7 +18,6 @@ export default function UsersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,19 +79,16 @@ export default function UsersPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 500, mx: "auto" }}>
-      <Button
-        component={Link}
-        href="/"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 3 }}
-      >
-        Volver
-      </Button>
+    <div className="mx-auto max-w-lg p-6">
+      <PageHeader
+        title="Registrar nuevo usuario"
+        backHref="/"
+        backLabel="Volver"
+      />
 
       <Card>
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+        <CardContent className="p-6">
+          <div className="mb-4 flex justify-center">
             <Image
               src="/logo-flash.png"
               alt="FlashDeco"
@@ -105,90 +96,78 @@ export default function UsersPage() {
               height={72}
               priority
             />
-          </Box>
-          <Typography variant="h5" component="h1" gutterBottom align="center">
-            Registrar nuevo usuario
-          </Typography>
+          </div>
 
           {success && (
-            <Typography color="success.main" variant="body2" sx={{ mb: 2 }}>
+            <p className="mb-4 text-sm text-green-600">
               Usuario registrado correctamente. Puedes iniciar sesión.
-            </Typography>
+            </p>
           )}
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              label="Usuario"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              sx={{ mb: 2 }}
-              autoComplete="username"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              sx={{ mb: 2 }}
-              autoComplete="email"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              sx={{ mb: 2 }}
-              autoComplete="new-password"
-              required
-              helperText="Mínimo 6 caracteres"
-            />
-            <TextField
-              fullWidth
-              label="Confirmar contraseña"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              sx={{ mb: 2 }}
-              autoComplete="new-password"
-              required
-            />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Usuario</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+              <p className="text-xs text-muted-foreground">Mínimo 6 caracteres</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </div>
 
             {error && (
-              <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-                {error}
-              </Typography>
+              <p className="text-sm text-destructive">{error}</p>
             )}
 
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              size="large"
-              // disabled={loading}
-            >
+            <Button type="submit" className="w-full" size="lg">
               {loading ? "Registrando..." : "Registrar"}
             </Button>
-          </Box>
+          </form>
 
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            align="center"
-            sx={{ mt: 2 }}
-          >
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" style={{ color: "inherit" }}>
+            <Link href="/login" className="text-primary hover:underline">
               Iniciar sesión
             </Link>
-          </Typography>
+          </p>
         </CardContent>
       </Card>
-    </Box>
+    </div>
   );
 }

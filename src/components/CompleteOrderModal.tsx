@@ -1,18 +1,19 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Rating,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { StarRating } from "@/components/ui/star-rating";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 
@@ -95,90 +96,99 @@ export function CompleteOrderModal({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Completar orden</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <TextField
-            fullWidth
-            label="Nombre del cliente"
-            value={clientName}
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            fullWidth
-            label="DNI"
-            value={canRate ? normalizedDni : "Sin DNI registrado"}
-            InputProps={{ readOnly: true }}
-            helperText={
-              canRate
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Completar orden</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="complete-client-name">Nombre del cliente</Label>
+            <Input
+              id="complete-client-name"
+              value={clientName}
+              readOnly
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="complete-client-dni">DNI</Label>
+            <Input
+              id="complete-client-dni"
+              value={canRate ? normalizedDni : "Sin DNI registrado"}
+              readOnly
+            />
+            <p className="text-xs text-muted-foreground">
+              {canRate
                 ? "La calificación se guarda por DNI"
-                : "Agrega el DNI del cliente para poder calificarlo"
-            }
-          />
-          <TextField
-            fullWidth
-            label="¿Hubo alguna observación con la orden?"
-            multiline
-            rows={4}
-            value={observations}
-            onChange={(e) => setObservations(e.target.value)}
-            placeholder="Observaciones..."
-          />
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                : "Agrega el DNI del cliente para poder calificarlo"}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="complete-observations">
+              ¿Hubo alguna observación con la orden?
+            </Label>
+            <Textarea
+              id="complete-observations"
+              rows={4}
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+              placeholder="Observaciones..."
+            />
+          </div>
+          <div>
+            <p className="mb-2 text-sm text-muted-foreground">
               Calificación del cliente
-            </Typography>
+            </p>
             {loadingRating ? (
-              <CircularProgress size={22} />
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
             ) : (
               <>
                 {existingRating !== null && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 1.5,
-                    }}
-                  >
-                    <Typography variant="body2" color="text.secondary">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
                       Calificación actual:
-                    </Typography>
-                    <Rating value={existingRating} readOnly size="small" />
-                  </Box>
+                    </span>
+                    <StarRating
+                      value={existingRating}
+                      readOnly
+                      size="sm"
+                    />
+                  </div>
                 )}
-                <Rating
+                <StarRating
                   value={clientRating ?? 0}
-                  onChange={(_, value) =>
-                    setClientRating(value === 0 ? null : value)
-                  }
+                  onChange={setClientRating}
                   disabled={!canRate || confirming}
-                  max={5}
                 />
                 {canRate && existingRating === null && (
-                  <Typography variant="caption" color="text.secondary">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Cliente nuevo: aún sin calificación previa
-                  </Typography>
+                  </p>
                 )}
               </>
             )}
-          </Box>
-        </Box>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={confirming}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={confirming}
+            className="bg-green-600 text-white hover:bg-green-700"
+          >
+            {confirming ? "Completando..." : confirmLabel}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={confirming}>
-          Cancelar
-        </Button>
-        <Button
-          onClick={handleConfirm}
-          color="success"
-          variant="contained"
-          disabled={confirming}
-        >
-          {confirming ? "Completando..." : confirmLabel}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

@@ -1,10 +1,13 @@
-import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
-import CategoryIcon from "@mui/icons-material/Category";
-import ListIcon from "@mui/icons-material/List";
-import LogoutIcon from "@mui/icons-material/Logout";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import PeopleIcon from "@mui/icons-material/People";
-import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import {
+  Images,
+  Landmark,
+  LayoutGrid,
+  List,
+  LogOut,
+  ShoppingCart,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 export type NavActionIconKey =
   | "crear"
@@ -23,25 +26,33 @@ export type NavAction = {
   isLogout?: boolean;
 };
 
-export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
-  crear: <AddShoppingCartIcon />,
-  listar: <ListIcon />,
-  categorias: <CategoryIcon />,
-  clientes: <PeopleIcon />,
-  finanzas: <AccountBalanceIcon />,
-  galeria: <PhotoLibraryIcon />,
-  logout: <LogoutIcon />,
+const NAV_ICON_MAP: Record<NavActionIconKey, LucideIcon> = {
+  crear: ShoppingCart,
+  listar: List,
+  categorias: LayoutGrid,
+  clientes: Users,
+  finanzas: Landmark,
+  galeria: Images,
+  logout: LogOut,
 };
 
-export const NAV_ICONS_LARGE: Record<NavActionIconKey, React.ReactNode> = {
-  crear: <AddShoppingCartIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-  listar: <ListIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-  categorias: <CategoryIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-  clientes: <PeopleIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-  finanzas: <AccountBalanceIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-  galeria: <PhotoLibraryIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-  logout: <LogoutIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
+  crear: <ShoppingCart className="size-5" />,
+  listar: <List className="size-5" />,
+  categorias: <LayoutGrid className="size-5" />,
+  clientes: <Users className="size-5" />,
+  finanzas: <Landmark className="size-5" />,
+  galeria: <Images className="size-5" />,
+  logout: <LogOut className="size-5" />,
 };
+
+export const NAV_ICONS_LARGE: Record<NavActionIconKey, React.ReactNode> =
+  Object.fromEntries(
+    Object.entries(NAV_ICON_MAP).map(([key, Icon]) => [
+      key,
+      <Icon key={key} className="size-12 text-primary" />,
+    ]),
+  ) as Record<NavActionIconKey, React.ReactNode>;
 
 export const NAV_ACTIONS: NavAction[] = [
   {

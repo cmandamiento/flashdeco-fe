@@ -1,26 +1,27 @@
 "use client";
 
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CloseIcon from "@mui/icons-material/Close";
-import ImageNotSupportedIcon from "@mui/icons-material/ImageNotSupported";
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  Grid,
-  IconButton,
-  Pagination,
-  Typography,
-} from "@mui/material";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ImageOff,
+  Loader2,
+  X,
+} from "lucide-react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const PAGE_SIZE = 12;
 
@@ -57,31 +58,11 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
   const editHref = `/editar-pedido/${order.id}`;
 
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        width: "100%",
-        aspectRatio: "1 / 1",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        boxSizing: "border-box",
-      }}
-    >
-      <Box
-        sx={{
-          position: "relative",
-          flex: 1,
-          minHeight: 0,
-          width: "100%",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          bgcolor: "action.hover",
-        }}
-      >
+    <Card className="flex aspect-square w-full flex-col overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted/50">
         {coverImage && hasImage ? (
-          <Box
+          <button
+            type="button"
             onClick={() => onImageClick(resultImages, 0)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -89,87 +70,36 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
                 onImageClick(resultImages, 0);
               }
             }}
-            role="button"
-            tabIndex={0}
             aria-label="Ampliar imagen final"
-            sx={{
-              position: "relative",
-              flex: 1,
-              minHeight: 0,
-              cursor: "pointer",
-            }}
+            className="relative min-h-0 flex-1 cursor-pointer"
           >
-            <Box
-              component="img"
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={coverImage}
               alt={`Imagen final pedido ${order.id} — ${order.clientName}`}
-              sx={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center center",
-                display: "block",
-              }}
+              className="absolute inset-0 block size-full object-cover object-center"
               onError={() => setImageFailed(true)}
             />
-          </Box>
+          </button>
         ) : (
-          <Box
-            sx={{
-              flex: 1,
-              minHeight: 0,
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 1.25,
-              color: "text.secondary",
-              p: 1.5,
-              textAlign: "center",
-            }}
-          >
-            <ImageNotSupportedIcon sx={{ fontSize: 40, opacity: 0.6 }} />
-            <Typography variant="body2" align="center" color="text.secondary">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-4 text-center text-muted-foreground">
+            <ImageOff className="size-10 opacity-60" />
+            <p className="text-sm">
               {coverImage && imageFailed
                 ? "No se pudo cargar la imagen"
                 : "No tiene imagen"}
-            </Typography>
-            <Button
-              component={Link}
-              href={editHref}
-              variant="outlined"
-              size="small"
-              sx={{ flexShrink: 0 }}
-            >
-              Agregar imagen
+            </p>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={editHref}>Agregar imagen</Link>
             </Button>
-          </Box>
+          </div>
         )}
-      </Box>
-      <CardContent
-        sx={{
-          flexShrink: 0,
-          pt: 1.25,
-          pb: 1.25,
-          px: 1.5,
-          "&:last-child": { pb: 1.25 },
-        }}
-      >
-        <Typography
-          variant="h6"
-          component="p"
-          fontWeight={800}
-          color="primary"
-          sx={{ fontSize: { xs: "1.1rem", sm: "1.25rem" }, lineHeight: 1.3 }}
-        >
+      </div>
+      <CardContent className="shrink-0 px-4 py-3">
+        <p className="text-lg font-extrabold text-primary sm:text-xl">
           {formatPrice(order.price)}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" display="block">
-          Pedido #{order.id}
-        </Typography>
+        </p>
+        <p className="text-xs text-muted-foreground">Pedido #{order.id}</p>
       </CardContent>
     </Card>
   );
@@ -237,143 +167,125 @@ export default function GaleriaPage() {
   }, []);
 
   const modalSrc = modalImages[modalIndex] ?? null;
+  const currentPage = Math.min(page, pageCount);
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
-      <Box
-        component={Link}
+    <div className="mx-auto max-w-6xl p-6">
+      <Link
         href="/"
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.5,
-          color: "primary.main",
-          textDecoration: "none",
-          mb: 2,
-          "&:hover": { textDecoration: "underline" },
-        }}
+        className="mb-4 inline-flex items-center gap-1 text-primary hover:underline"
       >
-        <ArrowBackIcon fontSize="small" />
-        <Typography component="span">Inicio</Typography>
-      </Box>
+        <ArrowLeft className="size-4" />
+        Inicio
+      </Link>
 
-      <Typography variant="h4" component="h1" gutterBottom>
-        Galería
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <h1 className="mb-2 text-3xl font-bold">Galería</h1>
+      <p className="mb-6 text-muted-foreground">
         Solo pedidos finalizados (completados).
-      </Typography>
+      </p>
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <div className="flex justify-center py-16">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
       ) : error ? (
-        <Typography color="error">{error}</Typography>
+        <p className="text-destructive">{error}</p>
       ) : sortedOrders.length === 0 ? (
-        <Typography color="text.secondary">
+        <p className="text-muted-foreground">
           No hay pedidos finalizados para mostrar.
-        </Typography>
+        </p>
       ) : (
         <>
-          <Grid container spacing={2}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             {pagedOrders.map((order) => (
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                md={4}
+              <GalleryCard
                 key={order.id}
-                sx={{ display: "flex" }}
-              >
-                <GalleryCard order={order} onImageClick={openModal} />
-              </Grid>
+                order={order}
+                onImageClick={openModal}
+              />
             ))}
-          </Grid>
+          </div>
 
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-            <Pagination
-              count={pageCount}
-              page={Math.min(page, pageCount)}
-              onChange={(_, value) => setPage(value)}
-              color="primary"
-              size="large"
-              showFirstButton
-              showLastButton
-              aria-label="Paginación de la galería"
-            />
-          </Box>
+          <div className="mt-8 flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={currentPage <= 1}
+              onClick={() => setPage(1)}
+              aria-label="Primera página"
+            >
+              <ChevronsLeft className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              aria-label="Página anterior"
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <span className="px-3 text-sm text-muted-foreground">
+              {currentPage} / {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={currentPage >= pageCount}
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              aria-label="Página siguiente"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={currentPage >= pageCount}
+              onClick={() => setPage(pageCount)}
+              aria-label="Última página"
+            >
+              <ChevronsRight className="size-4" />
+            </Button>
+          </div>
         </>
       )}
 
-      <Dialog
-        open={modalImages.length > 0}
-        onClose={closeModal}
-        maxWidth="lg"
-        fullWidth
-        aria-labelledby="galeria-modal-title"
-      >
-        <IconButton
-          onClick={closeModal}
-          sx={{ position: "absolute", right: 8, top: 8, zIndex: 1 }}
-          aria-label="Cerrar"
-        >
-          <CloseIcon />
-        </IconButton>
-        <DialogContent sx={{ p: 2, pt: 4 }}>
-          <Typography
-            id="galeria-modal-title"
-            component="h2"
-            sx={{
-              clip: "rect(0 0 0 0)",
-              clipPath: "inset(50%)",
-              height: "1px",
-              overflow: "hidden",
-              position: "absolute",
-              whiteSpace: "nowrap",
-              width: "1px",
-            }}
+      <Dialog open={modalImages.length > 0} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="max-w-4xl p-4 pt-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2"
+            onClick={closeModal}
+            aria-label="Cerrar"
           >
-            Imagen final ampliada
-          </Typography>
+            <X className="size-4" />
+          </Button>
+          <DialogTitle className="sr-only">Imagen final ampliada</DialogTitle>
           {modalSrc && (
             <>
-              <Box
-                component="img"
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={modalSrc}
                 alt="Imagen final ampliada"
-                sx={{
-                  width: "100%",
-                  maxHeight: "85vh",
-                  objectFit: "contain",
-                  display: "block",
-                  borderRadius: 1,
-                }}
+                className="mx-auto block max-h-[85vh] w-full rounded-md object-contain"
               />
               {modalImages.length > 1 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    gap: 2,
-                    mt: 2,
-                  }}
-                >
+                <div className="mt-4 flex items-center justify-center gap-3">
                   <Button
-                    variant="outlined"
-                    size="small"
+                    variant="outline"
+                    size="sm"
                     disabled={modalIndex <= 0}
                     onClick={() => setModalIndex((i) => Math.max(0, i - 1))}
                   >
                     Anterior
                   </Button>
-                  <Typography variant="body2" color="text.secondary">
+                  <span className="text-sm text-muted-foreground">
                     {modalIndex + 1} / {modalImages.length}
-                  </Typography>
+                  </span>
                   <Button
-                    variant="outlined"
-                    size="small"
+                    variant="outline"
+                    size="sm"
                     disabled={modalIndex >= modalImages.length - 1}
                     onClick={() =>
                       setModalIndex((i) =>
@@ -383,12 +295,12 @@ export default function GaleriaPage() {
                   >
                     Siguiente
                   </Button>
-                </Box>
+                </div>
               )}
             </>
           )}
         </DialogContent>
       </Dialog>
-    </Box>
+    </div>
   );
 }

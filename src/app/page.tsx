@@ -1,31 +1,23 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardActionArea,
-  CardContent,
-  FormControl,
-  Grid,
-  InputLabel,
-  List,
-  ListItemButton,
-  ListItemText,
-  MenuItem,
-  Select,
-  Snackbar,
-  Typography,
-} from "@mui/material";
-import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
-import NotificationsOffIcon from "@mui/icons-material/NotificationsOff";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Bell, BellOff } from "lucide-react";
+import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, removeToken } from "@/lib/auth";
 import { NAV_ACTIONS, NAV_ICONS_LARGE, type NavAction } from "@/lib/navActions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Order = {
   id: number;
@@ -54,7 +46,6 @@ const DAYS_OPTIONS = [
 ] as const;
 
 function formatDate(dateStr: string) {
-  // Parsear fecha YYYY-MM-DD como fecha local (no UTC)
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   return date.toLocaleDateString("es-PE", {
@@ -100,10 +91,6 @@ export default function HomePage() {
   const [daysFilter, setDaysFilter] = useState<7 | 15 | 30>(7);
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission | null>(null);
-  const [notificationSnackbar, setNotificationSnackbar] = useState(false);
-  const [testNotificationSnackbar, setTestNotificationSnackbar] = useState<
-    string | null
-  >(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -116,7 +103,11 @@ export default function HomePage() {
     try {
       const perm = await Notification.requestPermission();
       setNotificationPermission(perm);
-      if (perm === "granted") setNotificationSnackbar(true);
+      if (perm === "granted") {
+        toast.success(
+          "Notificaciones activadas. Recibirás avisos de eventos próximos.",
+        );
+      }
     } catch {
       setNotificationPermission("denied");
     }
@@ -202,7 +193,6 @@ export default function HomePage() {
 
   const upcomingOrders = orders
     .filter((order) => {
-      // Parsear fecha YYYY-MM-DD como fecha local
       const [year, month, day] = order.date.split("-").map(Number);
       const orderDate = new Date(year, month - 1, day);
       orderDate.setHours(0, 0, 0, 0);
@@ -230,158 +220,104 @@ export default function HomePage() {
     typeof window !== "undefined" && "Notification" in window;
 
   return (
-    <Box sx={{ px: 3, maxWidth: 1200, mx: "auto" }}>
+    <div className="mx-auto max-w-6xl px-6">
       {supportsNotifications && (
-        <Box sx={{ mt: 3, mb: 2 }}>
+        <div className="mt-6 mb-4 space-y-3">
           {notificationPermission === "default" && (
-            <Alert
-              severity="info"
-              action={
-                <Button
-                  color="inherit"
-                  size="small"
-                  startIcon={<NotificationsActiveIcon />}
-                  onClick={requestNotificationPermission}
-                >
+            <Alert>
+              <Bell className="size-4" />
+              <AlertTitle>Notificaciones de eventos</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center gap-3">
+                <span>
+                  Recibe avisos en tu dispositivo cuando tengas eventos próximos
+                  (hoy, mañana o en 2 días).
+                </span>
+                <Button size="sm" variant="outline" onClick={requestNotificationPermission}>
+                  <Bell className="size-4" />
                   Activar notificaciones
                 </Button>
-              }
-            >
-              Recibe avisos en tu dispositivo cuando tengas eventos próximos
-              (hoy, mañana o en 2 días).
+              </AlertDescription>
             </Alert>
           )}
           {notificationPermission === "denied" && (
-            <Alert severity="warning" icon={<NotificationsOffIcon />}>
-              Las notificaciones están bloqueadas. Actívalas en la configuración
-              del navegador para recibir avisos.
+            <Alert variant="destructive">
+              <BellOff className="size-4" />
+              <AlertDescription>
+                Las notificaciones están bloqueadas. Actívalas en la configuración
+                del navegador para recibir avisos.
+              </AlertDescription>
             </Alert>
           )}
-        </Box>
+        </div>
       )}
 
-      <Box sx={{ mt: 3, mb: 5 }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            flexWrap: "wrap",
-            mb: 2,
-          }}
-        >
-          <Typography variant="h5" component="h2">
-            Próximos eventos
-          </Typography>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="days-filter-label">En los próximos</InputLabel>
-            <Select
-              labelId="days-filter-label"
-              value={daysFilter}
-              label="En los próximos"
-              onChange={(e) =>
-                setDaysFilter(Number(e.target.value) as 7 | 15 | 30)
-              }
-            >
+      <div className="mt-6 mb-8">
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <h2 className="text-xl font-semibold">Próximos eventos</h2>
+          <Select
+            value={String(daysFilter)}
+            onValueChange={(v) => setDaysFilter(Number(v) as 7 | 15 | 30)}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="En los próximos" />
+            </SelectTrigger>
+            <SelectContent>
               {DAYS_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
+                <SelectItem key={opt.value} value={String(opt.value)}>
                   {opt.label}
-                </MenuItem>
+                </SelectItem>
               ))}
-            </Select>
-          </FormControl>
-        </Box>
+            </SelectContent>
+          </Select>
+        </div>
 
         <Card>
           {upcomingOrders.length === 0 ? (
-            <CardContent>
-              <Typography color="text.secondary">
+            <CardContent className="py-6">
+              <p className="text-muted-foreground">
                 No hay eventos en los próximos {daysFilter} días
-              </Typography>
+              </p>
             </CardContent>
           ) : (
-            <List disablePadding>
+            <div className="divide-y">
               {upcomingOrders.map((order) => (
-                <ListItemButton
+                <Link
                   key={order.id}
-                  component={Link}
                   href={`/pedidos/${order.id}`}
+                  className="block px-4 py-3 transition-colors hover:bg-muted/50"
                 >
-                  <ListItemText
-                    primary={order.clientName}
-                    secondary={
-                      <>
-                        {formatDate(order.date)}
-                        {order.category && (
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ ml: 1 }}
-                          >
-                            — {order.category.name}
-                          </Typography>
-                        )}
-                      </>
-                    }
-                    primaryTypographyProps={{ fontWeight: 500 }}
-                  />
-                </ListItemButton>
+                  <p className="font-medium">{order.clientName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(order.date)}
+                    {order.category && ` — ${order.category.name}`}
+                  </p>
+                </Link>
               ))}
-            </List>
+            </div>
           )}
         </Card>
-      </Box>
+      </div>
 
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+      <p className="mb-6 text-muted-foreground">
         Selecciona una acción para continuar
-      </Typography>
-      <Grid container spacing={3}>
+      </p>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {NAV_ACTIONS.map((action: NavAction) => (
-          <Grid item xs={6} sm={6} md={3} key={action.title}>
-            <Card
-              sx={{
-                height: "100%",
-                transition: "transform 0.2s, box-shadow 0.2s",
-                "&:hover": {
-                  transform: "translateY(-4px)",
-                  boxShadow: 4,
-                },
-              }}
-            >
-              <CardActionArea
-                onClick={() => handleAction(action)}
-                sx={{ height: "100%", p: 2 }}
-              >
-                <CardContent>
-                  <Box sx={{ mb: 2 }}>{NAV_ICONS_LARGE[action.iconKey]}</Box>
-                  <Typography variant="h6" component="h2" gutterBottom>
-                    {action.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {action.description}
-                  </Typography>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          </Grid>
+          <Card
+            key={action.title}
+            className="h-full cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md"
+            onClick={() => handleAction(action)}
+          >
+            <CardContent className="p-4">
+              <div className="mb-3">{NAV_ICONS_LARGE[action.iconKey]}</div>
+              <h3 className="mb-1 font-semibold">{action.title}</h3>
+              <p className="text-sm text-muted-foreground">
+                {action.description}
+              </p>
+            </CardContent>
+          </Card>
         ))}
-      </Grid>
-
-      <Snackbar
-        open={notificationSnackbar}
-        autoHideDuration={4000}
-        onClose={() => setNotificationSnackbar(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        message="Notificaciones activadas. Recibirás avisos de eventos próximos."
-      />
-      <Snackbar
-        open={!!testNotificationSnackbar}
-        autoHideDuration={5000}
-        onClose={() => setTestNotificationSnackbar(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        message={testNotificationSnackbar}
-      />
-    </Box>
+      </div>
+    </div>
   );
 }

@@ -1,31 +1,29 @@
 "use client";
 
 import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Divider,
-  Grid,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
-import PersonIcon from "@mui/icons-material/Person";
-import PhoneIcon from "@mui/icons-material/Phone";
-import CategoryIcon from "@mui/icons-material/Category";
-import ImageIcon from "@mui/icons-material/Image";
-import PrintIcon from "@mui/icons-material/Print";
+  ArrowLeft,
+  Calendar,
+  Image as ImageIcon,
+  MapPin,
+  Phone,
+  Printer,
+  Tags,
+  TriangleAlert,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import { cn } from "@/lib/utils";
 
 type Order = {
   id: number;
@@ -76,20 +74,21 @@ export default function VerPedidoPage() {
     };
   }, [id]);
 
-  if (loading) return <Box sx={{ p: 3 }}>Cargando...</Box>;
+  if (loading) {
+    return <div className="p-6">Cargando...</div>;
+  }
+
   if (error || !order) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">{error || "Pedido no encontrado"}</Typography>
-        <Button
-          component={Link}
-          href="/listar-pedidos"
-          startIcon={<ArrowBackIcon />}
-          sx={{ mt: 2 }}
-        >
-          Volver a pedidos
+      <div className="p-6">
+        <p className="text-destructive">{error || "Pedido no encontrado"}</p>
+        <Button asChild className="mt-4">
+          <Link href="/listar-pedidos">
+            <ArrowLeft className="size-4" />
+            Volver a pedidos
+          </Link>
         </Button>
-      </Box>
+      </div>
     );
   }
 
@@ -97,7 +96,6 @@ export default function VerPedidoPage() {
   const resultImages = parseOrderImageList(order.result);
 
   const formatDate = (dateStr: string) => {
-    // Parsear fecha YYYY-MM-DD como fecha local (no UTC)
     const [year, month, day] = dateStr.split("-").map(Number);
     const date = new Date(year, month - 1, day);
     return date.toLocaleDateString("es-PE", {
@@ -108,16 +106,16 @@ export default function VerPedidoPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeClassName = (status: string) => {
     switch (status) {
       case "PENDING":
-        return "warning";
+        return "border-amber-500/30 bg-amber-500/15 text-amber-800 dark:text-amber-200";
       case "COMPLETE":
-        return "success";
+        return "border-green-500/30 bg-green-500/15 text-green-800 dark:text-green-200";
       case "CANCELLED":
-        return "error";
+        return "";
       default:
-        return "default";
+        return "";
     }
   };
 
@@ -226,7 +224,6 @@ export default function VerPedidoPage() {
         });
       };
 
-      // Header
       const logoWidth = 38;
       const logoHeight = 16;
       const headerRowH = Math.max(rowH + 2, logoHeight + 6);
@@ -242,7 +239,6 @@ export default function VerPedidoPage() {
       }
       y += headerRowH;
 
-      // Cliente
       drawCell(leftX, y, labelCol, rowH, "DNI", true);
       drawCell(
         leftX + labelCol,
@@ -253,7 +249,6 @@ export default function VerPedidoPage() {
       );
       y += rowH;
 
-      // Cliente
       drawCell(leftX, y, labelCol, rowH, "Cliente", true);
       drawCell(
         leftX + labelCol,
@@ -264,7 +259,6 @@ export default function VerPedidoPage() {
       );
       y += rowH;
 
-      // Fecha + Telefono
       const dateLabelW = 40;
       const phoneLabelW = 35;
       const dateValueExtraW = 12;
@@ -291,7 +285,6 @@ export default function VerPedidoPage() {
       );
       y += rowH;
 
-      // Direccion
       drawCell(leftX, y, labelCol, rowH, "Dirección", true);
       drawCell(leftX + labelCol, y, tableWidth - labelCol, rowH, order.address);
       y += rowH;
@@ -332,7 +325,6 @@ export default function VerPedidoPage() {
         }
       }
 
-      // Totales
       const moneyLabelW = tableWidth - 55;
       const moneyValueW = 55;
       drawCell(leftX, y, moneyLabelW, rowH, "Total", false, "right");
@@ -383,13 +375,10 @@ export default function VerPedidoPage() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: "auto" }}>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
-        sx={{ mb: 3 }}
-      >
+    <div className="mx-auto max-w-[800px] p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <Button
+          variant="outline"
           onClick={() => {
             if (typeof window !== "undefined" && window.history.length > 1) {
               router.back();
@@ -397,320 +386,196 @@ export default function VerPedidoPage() {
               router.push("/listar-pedidos");
             }
           }}
-          startIcon={<ArrowBackIcon />}
         >
+          <ArrowLeft className="size-4" />
           Volver a pedidos
         </Button>
-        <Button
-          variant="contained"
-          startIcon={<PrintIcon />}
-          onClick={handlePrintQuote}
-        >
+        <Button onClick={handlePrintQuote}>
+          <Printer className="size-4" />
           Imprimir cotización
         </Button>
-      </Stack>
+      </div>
 
-      <Paper
-        elevation={3}
-        sx={{
-          p: { xs: 3, sm: 4 },
-          borderRadius: 2,
-          bgcolor: "background.paper",
-        }}
-      >
-        {/* Header del recibo */}
-        <Box
-          sx={{
-            textAlign: "center",
-            mb: 4,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 2,
-          }}
-        >
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            Recibo N° {order.id}
-          </Typography>
-          <Chip
-            label={getStatusLabel(order.status)}
-            color={
-              getStatusColor(order.status) as
-                | "warning"
-                | "success"
-                | "error"
-                | "default"
-            }
-            size="medium"
-            sx={{ fontWeight: "bold" }}
-          />
-        </Box>
+      <Card className="shadow-md">
+        <CardContent className="space-y-6 p-6 sm:p-8">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-center">
+            <h1 className="text-3xl font-bold">Recibo N° {order.id}</h1>
+            <Badge
+              variant={order.status === "CANCELLED" ? "destructive" : "outline"}
+              className={cn(
+                "px-3 py-1 text-sm font-bold",
+                getStatusBadgeClassName(order.status),
+              )}
+            >
+              {getStatusLabel(order.status)}
+            </Badge>
+          </div>
 
-        {order.status === "COMPLETE" &&
-          order.observations &&
-          order.observations.trim() !== "" && (
-            <Alert severity="warning" sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                Hubo observaciones con este cliente:
-              </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                {order.observations}
-              </Typography>
-            </Alert>
-          )}
+          {order.status === "COMPLETE" &&
+            order.observations &&
+            order.observations.trim() !== "" && (
+              <Alert className="border-amber-500/50 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                <TriangleAlert className="text-amber-600 dark:text-amber-400" />
+                <AlertTitle>
+                  Hubo observaciones con este cliente:
+                </AlertTitle>
+                <AlertDescription className="whitespace-pre-wrap text-amber-900 dark:text-amber-100">
+                  {order.observations}
+                </AlertDescription>
+              </Alert>
+            )}
 
-        <Divider sx={{ my: 3 }} />
+          <Separator />
 
-        {/* Información del cliente */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
-            <Stack spacing={2}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <PersonIcon color="primary" />
-                <Typography variant="subtitle2" color="text.secondary">
-                  Cliente
-                </Typography>
-              </Box>
-              <Typography variant="h6" fontWeight="medium">
-                {order.clientName}
-              </Typography>
-            </Stack>
-          </Grid>
+          <div className="mb-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <User className="size-5 text-primary" />
+                <span className="text-sm text-muted-foreground">Cliente</span>
+              </div>
+              <p className="text-lg font-medium">{order.clientName}</p>
+            </div>
 
-          {order.phone && (
-            <Grid item xs={12} sm={6}>
-              <Stack spacing={2}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <PhoneIcon color="primary" />
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Teléfono
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="h6"
-                  fontWeight="medium"
+            {order.phone && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Phone className="size-5 text-primary" />
+                  <span className="text-sm text-muted-foreground">Teléfono</span>
+                </div>
+                <button
+                  type="button"
                   onClick={() => openWhatsApp(order.phone!)}
-                  sx={{
-                    cursor: "pointer",
-                    color: "primary.main",
-                    "&:hover": {
-                      textDecoration: "underline",
-                    },
-                  }}
+                  className="text-left text-lg font-medium text-primary hover:underline"
                 >
                   {order.phone}
-                </Typography>
-              </Stack>
-            </Grid>
-          )}
+                </button>
+              </div>
+            )}
 
-          <Grid item xs={12} sm={6}>
-            <Stack spacing={2}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <CalendarTodayIcon color="primary" />
-                <Typography variant="subtitle2" color="text.secondary">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="size-5 text-primary" />
+                <span className="text-sm text-muted-foreground">
                   Fecha del evento
-                </Typography>
-              </Box>
-              <Typography variant="h6" fontWeight="medium">
-                {formatDate(order.date)}
-              </Typography>
-            </Stack>
-          </Grid>
+                </span>
+              </div>
+              <p className="text-lg font-medium">{formatDate(order.date)}</p>
+            </div>
 
-          {order.category && (
-            <Grid item xs={12} sm={6}>
-              <Stack spacing={2}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CategoryIcon color="primary" />
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Temática
-                  </Typography>
-                </Box>
-                <Typography variant="h6" fontWeight="medium">
-                  {order.category.name}
-                </Typography>
-              </Stack>
-            </Grid>
-          )}
-
-          <Grid item xs={12}>
-            <Stack spacing={2}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <LocationOnIcon color="primary" />
-                <Typography variant="subtitle2" color="text.secondary">
-                  Dirección
-                </Typography>
-              </Box>
-              <Typography variant="body1" fontWeight="medium">
-                {order.address}
-              </Typography>
-            </Stack>
-          </Grid>
-
-          {order.description && (
-            <Grid item xs={12}>
-              <Stack spacing={2}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Descripción
-                </Typography>
-                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-                  {order.description}
-                </Typography>
-              </Stack>
-            </Grid>
-          )}
-        </Grid>
-
-        {referenceImages.length > 0 && (
-          <>
-            <Divider sx={{ my: 3 }} />
-            <Box>
-              <Box
-                sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
-              >
-                <ImageIcon color="primary" />
-                <Typography variant="h6" fontWeight="bold">
-                  {referenceImages.length > 1
-                    ? "Imágenes referenciales"
-                    : "Imagen referencial"}
-                </Typography>
-              </Box>
-              <Stack spacing={2}>
-                {referenceImages.map((src, index) => (
-                  <Box
-                    key={`${src}-${index}`}
-                    component="img"
-                    src={src}
-                    alt={`Referencia ${index + 1}`}
-                    sx={{
-                      width: "100%",
-                      maxHeight: 500,
-                      objectFit: "contain",
-                      borderRadius: 2,
-                      border: "1px solid",
-                      borderColor: "divider",
-                    }}
-                  />
-                ))}
-              </Stack>
-            </Box>
-          </>
-        )}
-
-        {resultImages.length > 0 && (
-          <>
-            <Divider sx={{ my: 3 }} />
-            <Box>
-              <Box
-                sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
-              >
-                <ImageIcon color="primary" />
-                <Typography variant="h6" fontWeight="bold">
-                  {resultImages.length > 1
-                    ? "Fotos de resultado"
-                    : "Foto de resultado"}
-                </Typography>
-              </Box>
-              <Stack spacing={2}>
-                {resultImages.map((src, index) => (
-                  <Box
-                    key={`${src}-${index}`}
-                    component="img"
-                    src={src}
-                    alt={`Resultado ${index + 1}`}
-                    sx={{
-                      width: "100%",
-                      maxHeight: 500,
-                      objectFit: "contain",
-                      borderRadius: 2,
-                      border: "1px solid",
-                      borderColor: "divider",
-                    }}
-                  />
-                ))}
-              </Stack>
-            </Box>
-          </>
-        )}
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Información financiera */}
-        <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="h6"
-            fontWeight="bold"
-            gutterBottom
-            sx={{ mb: 2 }}
-          >
-            Detalle de pago
-          </Typography>
-          <Stack spacing={2}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                py: 1,
-              }}
-            >
-              <Typography variant="body1" color="text.secondary">
-                Cotización:
-              </Typography>
-              <Typography variant="h6" fontWeight="bold">
-                S/. {order.price.toFixed(2)}
-              </Typography>
-            </Box>
-
-            {order.deposit != null && (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  py: 1,
-                }}
-              >
-                <Typography variant="body1" color="text.secondary">
-                  A cuenta:
-                </Typography>
-                <Typography
-                  variant="body1"
-                  fontWeight="medium"
-                  color="success.main"
-                >
-                  S/. {order.deposit.toFixed(2)}
-                </Typography>
-              </Box>
+            {order.category && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Tags className="size-5 text-primary" />
+                  <span className="text-sm text-muted-foreground">Temática</span>
+                </div>
+                <p className="text-lg font-medium">{order.category.name}</p>
+              </div>
             )}
 
-            {order.balance != null && (
-              <>
-                <Divider />
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    py: 1.5,
-                    px: 2,
-                    bgcolor: "action.hover",
-                    borderRadius: 1,
-                  }}
-                >
-                  <Typography variant="h6" fontWeight="bold">
-                    Pendiente:
-                  </Typography>
-                  <Typography variant="h5" fontWeight="bold" color="primary">
-                    S/. {order.balance.toFixed(2)}
-                  </Typography>
-                </Box>
-              </>
+            <div className="col-span-full flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="size-5 text-primary" />
+                <span className="text-sm text-muted-foreground">Dirección</span>
+              </div>
+              <p className="font-medium">{order.address}</p>
+            </div>
+
+            {order.description && (
+              <div className="col-span-full flex flex-col gap-2">
+                <span className="text-sm text-muted-foreground">Descripción</span>
+                <p className="whitespace-pre-wrap">{order.description}</p>
+              </div>
             )}
-          </Stack>
-        </Box>
-      </Paper>
-    </Box>
+          </div>
+
+          {referenceImages.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <div className="mb-4 flex items-center gap-2">
+                  <ImageIcon className="size-5 text-primary" />
+                  <h2 className="text-lg font-bold">
+                    {referenceImages.length > 1
+                      ? "Imágenes referenciales"
+                      : "Imagen referencial"}
+                  </h2>
+                </div>
+                <div className="flex flex-col gap-4">
+                  {referenceImages.map((src, index) => (
+                    <img
+                      key={`${src}-${index}`}
+                      src={src}
+                      alt={`Referencia ${index + 1}`}
+                      className="max-h-[500px] w-full rounded-lg border object-contain"
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {resultImages.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <div className="mb-4 flex items-center gap-2">
+                  <ImageIcon className="size-5 text-primary" />
+                  <h2 className="text-lg font-bold">
+                    {resultImages.length > 1
+                      ? "Fotos de resultado"
+                      : "Foto de resultado"}
+                  </h2>
+                </div>
+                <div className="flex flex-col gap-4">
+                  {resultImages.map((src, index) => (
+                    <img
+                      key={`${src}-${index}`}
+                      src={src}
+                      alt={`Resultado ${index + 1}`}
+                      className="max-h-[500px] w-full rounded-lg border object-contain"
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <Separator />
+
+          <div>
+            <h2 className="mb-4 text-lg font-bold">Detalle de pago</h2>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between py-1">
+                <span className="text-muted-foreground">Cotización:</span>
+                <span className="text-lg font-bold">
+                  S/. {order.price.toFixed(2)}
+                </span>
+              </div>
+
+              {order.deposit != null && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-muted-foreground">A cuenta:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">
+                    S/. {order.deposit.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
+              {order.balance != null && (
+                <>
+                  <Separator />
+                  <div className="flex items-center justify-between rounded-md bg-muted px-4 py-3">
+                    <span className="text-lg font-bold">Pendiente:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      S/. {order.balance.toFixed(2)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
