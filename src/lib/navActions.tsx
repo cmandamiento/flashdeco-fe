@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   Images,
   Landmark,
@@ -6,7 +7,6 @@ import {
   LogOut,
   ShoppingCart,
   Users,
-  type LucideIcon,
 } from "lucide-react";
 
 export type NavActionIconKey =
@@ -26,14 +26,14 @@ export type NavAction = {
   isLogout?: boolean;
 };
 
-const NAV_ICON_MAP: Record<NavActionIconKey, LucideIcon> = {
-  crear: ShoppingCart,
-  listar: List,
-  categorias: LayoutGrid,
-  clientes: Users,
-  finanzas: Landmark,
-  galeria: Images,
-  logout: LogOut,
+const NAV_ICON_IMAGES: Record<NavActionIconKey, string> = {
+  crear: "/icons/crear.png",
+  listar: "/icons/pedidos.png",
+  categorias: "/icons/categorias.png",
+  clientes: "/icons/clientes.png",
+  finanzas: "/icons/finanzas.png",
+  galeria: "/icons/galeria.png",
+  logout: "/icons/salir.png",
 };
 
 export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
@@ -48,9 +48,16 @@ export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
 
 export const NAV_ICONS_LARGE: Record<NavActionIconKey, React.ReactNode> =
   Object.fromEntries(
-    Object.entries(NAV_ICON_MAP).map(([key, Icon]) => [
+    Object.entries(NAV_ICON_IMAGES).map(([key, src]) => [
       key,
-      <Icon key={key} className="size-12 text-primary" />,
+      <Image
+        key={key}
+        src={src}
+        alt=""
+        width={96}
+        height={96}
+        className="size-24 object-contain"
+      />,
     ]),
   ) as Record<NavActionIconKey, React.ReactNode>;
 
