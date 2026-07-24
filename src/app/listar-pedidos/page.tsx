@@ -469,6 +469,10 @@ function ListarPedidosContent() {
     const cmp = getComparator(orderBy)(a, b);
     return orderDir === "asc" ? cmp : -cmp;
   });
+  const totalListedPrice = sortedOrders.reduce(
+    (sum, o) => sum + (o.price ?? 0),
+    0,
+  );
 
   const openCancelModal = (order: Order) => {
     setOrderToCancel(order);
@@ -680,6 +684,7 @@ function ListarPedidosContent() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12 text-center">#</TableHead>
                     <SortableHead
                       label="Cliente"
                       field="clientName"
@@ -722,7 +727,7 @@ function ListarPedidosContent() {
                 <TableBody>
                   {sortedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center">
+                      <TableCell colSpan={7} className="py-8 text-center">
                         <span className="text-muted-foreground">
                           {statusFilter === "all" && categoryFilter === "all"
                             ? "No hay pedidos registrados"
@@ -731,9 +736,13 @@ function ListarPedidosContent() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    sortedOrders.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>{row.clientName}</TableCell>
+                    <>
+                      {sortedOrders.map((row, index) => (
+                        <TableRow key={row.id}>
+                          <TableCell className="text-center text-muted-foreground">
+                            {index + 1}
+                          </TableCell>
+                          <TableCell>{row.clientName}</TableCell>
                         <TableCell>{formatDate(row.date)}</TableCell>
                         <TableCell>
                           <StatusCell status={row.status} />
@@ -849,7 +858,18 @@ function ListarPedidosContent() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                      ))}
+                      <TableRow className="bg-muted/50 font-semibold">
+                        <TableCell />
+                        <TableCell colSpan={4} className="text-right">
+                          Total ({sortedOrders.length}):
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatPrice(totalListedPrice)}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </>
                   )}
                 </TableBody>
               </Table>

@@ -162,6 +162,7 @@ export default function FinanzasPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12 text-center">#</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Categoría</TableHead>
@@ -172,15 +173,18 @@ export default function FinanzasPage() {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                       No hay pedidos completados en {MONTHES[month - 1]?.label}{" "}
                       {year}
                     </TableCell>
                   </TableRow>
                 ) : (
                   <>
-                    {orders.map((row) => (
+                    {orders.map((row, index) => (
                       <TableRow key={row.id}>
+                        <TableCell className="text-center text-muted-foreground">
+                          {index + 1}
+                        </TableCell>
                         <TableCell>{row.clientName}</TableCell>
                         <TableCell>{formatDate(row.date)}</TableCell>
                         <TableCell>{row.category?.name ?? "—"}</TableCell>
@@ -200,8 +204,9 @@ export default function FinanzasPage() {
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold">
+                      <TableCell />
                       <TableCell colSpan={3} className="text-right">
-                        Total:
+                        Total ({orders.length}):
                       </TableCell>
                       <TableCell className="text-right">
                         {totalPrice.toLocaleString("es-PE", {
