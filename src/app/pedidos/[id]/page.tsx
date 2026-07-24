@@ -189,9 +189,12 @@ export default function VerPedidoPage() {
     try {
       const pdf = new jsPDF({ unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const leftX = 10;
+      const topMargin = 10;
+      const bottomMargin = 12;
       const tableWidth = pageWidth - leftX * 2;
-      let y = 10;
+      let y = topMargin;
       const logoUrl = "/logo-flash.png";
 
       const rowH = 10;
@@ -200,6 +203,13 @@ export default function VerPedidoPage() {
       const leftColW = tableWidth - rightColW;
       const halfLeft = leftColW / 2;
       const labelCol = 40;
+
+      const ensureSpace = (neededHeight: number) => {
+        if (y + neededHeight > pageHeight - bottomMargin) {
+          pdf.addPage();
+          y = topMargin;
+        }
+      };
 
       const drawCell = (
         x: number,
@@ -227,6 +237,7 @@ export default function VerPedidoPage() {
       const logoWidth = 38;
       const logoHeight = 16;
       const headerRowH = Math.max(rowH + 2, logoHeight + 6);
+      ensureSpace(headerRowH);
       drawCell(leftX, y, leftColW, headerRowH, "Cotización", true, "left");
       drawCell(leftX + leftColW, y, rightColW, headerRowH, "", false);
       try {
@@ -239,6 +250,7 @@ export default function VerPedidoPage() {
       }
       y += headerRowH;
 
+      ensureSpace(rowH);
       drawCell(leftX, y, labelCol, rowH, "DNI", true);
       drawCell(
         leftX + labelCol,
@@ -249,6 +261,7 @@ export default function VerPedidoPage() {
       );
       y += rowH;
 
+      ensureSpace(rowH);
       drawCell(leftX, y, labelCol, rowH, "Cliente", true);
       drawCell(
         leftX + labelCol,
@@ -259,6 +272,7 @@ export default function VerPedidoPage() {
       );
       y += rowH;
 
+      ensureSpace(rowH);
       const dateLabelW = 40;
       const phoneLabelW = 35;
       const dateValueExtraW = 12;
@@ -285,11 +299,13 @@ export default function VerPedidoPage() {
       );
       y += rowH;
 
+      ensureSpace(rowH);
       drawCell(leftX, y, labelCol, rowH, "Dirección", true);
       drawCell(leftX + labelCol, y, tableWidth - labelCol, rowH, order.address);
       y += rowH;
 
       const imgAreaH = referenceImages.length > 1 ? 90 : 120;
+      ensureSpace(rowH);
       drawCell(
         leftX,
         y,
@@ -303,10 +319,13 @@ export default function VerPedidoPage() {
       y += rowH;
 
       if (referenceImages.length === 0) {
+        ensureSpace(imgAreaH);
         drawCell(leftX, y, tableWidth, imgAreaH, "", false);
         y += imgAreaH;
       } else {
         for (let i = 0; i < referenceImages.length; i++) {
+          const gapAfter = i < referenceImages.length - 1 ? 2 : 0;
+          ensureSpace(imgAreaH + gapAfter);
           drawCell(leftX, y, tableWidth, imgAreaH, "", false);
           const dataUrl = await getImageAsDataUrl(referenceImages[i]);
           const imgProps = pdf.getImageProperties(dataUrl);
@@ -319,14 +338,15 @@ export default function VerPedidoPage() {
           const imgY = y + (imgAreaH - imgH) / 2;
           pdf.addImage(dataUrl, "JPEG", imgX, imgY, imgW, imgH);
           y += imgAreaH;
-          if (i < referenceImages.length - 1) {
-            y += 2;
+          if (gapAfter > 0) {
+            y += gapAfter;
           }
         }
       }
 
       const moneyLabelW = tableWidth - 55;
       const moneyValueW = 55;
+      ensureSpace(rowH * 3);
       drawCell(leftX, y, moneyLabelW, rowH, "Total", false, "right");
       drawCell(
         leftX + moneyLabelW,
@@ -366,6 +386,9 @@ export default function VerPedidoPage() {
       pdf.setFont("helvetica", "italic");
       pdf.setFontSize(10);
       const disclaimerLines = pdf.splitTextToSize(disclaimer, tableWidth);
+      const disclaimerLineHeight = 5;
+      const disclaimerHeight = disclaimerLines.length * disclaimerLineHeight;
+      ensureSpace(disclaimerHeight);
       pdf.text(disclaimerLines, leftX, y);
 
       pdf.save(`cotizacion-pedido-${order.id}.pdf`);
