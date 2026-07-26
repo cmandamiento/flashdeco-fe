@@ -200,6 +200,7 @@ function formatMoneyEs(value: number) {
 
 function computeQuoteEstimate(params: {
   screens: number;
+  pantallaPersonalizada: boolean;
   foamNuevo: boolean;
   foamPersonalizado: boolean;
   incluyeAlquiler: boolean;
@@ -220,13 +221,21 @@ function computeQuoteEstimate(params: {
   });
   let sub = montoPantallas;
 
+  if (params.pantallaPersonalizada) {
+    lines.push({
+      label: "Pantalla personalizada (gigantografía)",
+      amount: 25,
+    });
+    sub += 25;
+  }
+
   if (params.foamNuevo) {
     lines.push({ label: "Foam nuevo", amount: 25 });
-    sub += 25;
+    sub += 30;
   }
   if (params.foamPersonalizado) {
     lines.push({ label: "Foam personalizado", amount: 30 });
-    sub += 30;
+    sub += 35;
   }
   if (params.incluyeAlquiler) {
     lines.push({
@@ -312,6 +321,8 @@ export function OrderForm({
   const [categorySaving, setCategorySaving] = useState(false);
   const [quoteHelpOpen, setQuoteHelpOpen] = useState(false);
   const [qhScreens, setQhScreens] = useState("");
+  const [qhPantallaPersonalizada, setQhPantallaPersonalizada] =
+    useState<YesNoValue>("no");
   const [qhFoamNuevo, setQhFoamNuevo] = useState<YesNoValue>("no");
   const [qhFoamPers, setQhFoamPers] = useState<YesNoValue>("no");
   const [qhAlquiler, setQhAlquiler] = useState<YesNoValue>("no");
@@ -462,6 +473,7 @@ export function OrderForm({
 
   const resetQuoteHelpModal = useCallback(() => {
     setQhScreens("");
+    setQhPantallaPersonalizada("no");
     setQhFoamNuevo("no");
     setQhFoamPers("no");
     setQhAlquiler("no");
@@ -499,6 +511,7 @@ export function OrderForm({
 
     const result = computeQuoteEstimate({
       screens: screensNum,
+      pantallaPersonalizada: qhPantallaPersonalizada === "si",
       foamNuevo: qhFoamNuevo === "si",
       foamPersonalizado: qhFoamPers === "si",
       incluyeAlquiler: qhAlquiler === "si",
@@ -1106,6 +1119,22 @@ export function OrderForm({
               </div>
             )}
 
+            {!isEdit && (
+              <Alert
+                className="col-span-full cursor-pointer border-blue-200 bg-blue-50 transition-colors hover:bg-blue-100"
+                onClick={() => {
+                  resetQuoteHelpModal();
+                  setQuoteHelpOpen(true);
+                }}
+              >
+                <AlertTitle>¿Dudas sobre cotización?</AlertTitle>
+                <AlertDescription>
+                  Abre el asistente para estimar la cotización según pantallas,
+                  foam, alquiler y ubicación.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="quote">Cotización S/.</Label>
               <div className="relative">
@@ -1159,18 +1188,7 @@ export function OrderForm({
             </div>
 
             <div className="col-span-full space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label>Gastos</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addExpenseRow}
-                >
-                  <Plus className="size-4" />
-                  Agregar gasto
-                </Button>
-              </div>
+              <Label>Gastos</Label>
               <div className="space-y-2 rounded-md border p-3">
                 <div className="hidden gap-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_140px_40px]">
                   <span>Concepto</span>
@@ -1212,6 +1230,16 @@ export function OrderForm({
                     </Button>
                   </div>
                 ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={addExpenseRow}
+                >
+                  <Plus className="size-4" />
+                  Agregar gasto
+                </Button>
                 <Separator />
                 <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-end sm:gap-8">
                   <p>
@@ -1227,22 +1255,6 @@ export function OrderForm({
                 </div>
               </div>
             </div>
-
-            {!isEdit && (
-              <Alert
-                className="col-span-full cursor-pointer border-blue-200 bg-blue-50 transition-colors hover:bg-blue-100"
-                onClick={() => {
-                  resetQuoteHelpModal();
-                  setQuoteHelpOpen(true);
-                }}
-              >
-                <AlertTitle>¿Dudas sobre cotización?</AlertTitle>
-                <AlertDescription>
-                  Abre el asistente para estimar la cotización según pantallas,
-                  foam, alquiler y ubicación.
-                </AlertDescription>
-              </Alert>
-            )}
 
             <div className="col-span-full mt-2 flex gap-4">
               <Button type="submit" disabled={loading}>
@@ -1286,6 +1298,13 @@ export function OrderForm({
                   step={1}
                 />
               </div>
+
+              <YesNoRadioGroup
+                name="pantalla-personalizada"
+                legend="¿Requiere pantalla personalizada? (gigantografía)"
+                value={qhPantallaPersonalizada}
+                onChange={setQhPantallaPersonalizada}
+              />
 
               <YesNoRadioGroup
                 name="foam-nuevo"

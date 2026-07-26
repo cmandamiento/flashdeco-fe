@@ -10,18 +10,20 @@ import {
   ChevronsRight,
   ImageOff,
   Loader2,
-  TriangleAlert,
   X,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
 import {
+  classifyOrderProfit,
   formatMoney,
+  lossReviewMessage,
+  lowMarginReviewMessage,
   netProfit,
   parseOrderExpenses,
+  type OrderProfitLevel,
 } from "@/lib/orderExpenses";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -29,6 +31,13 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 12;
 
@@ -48,11 +57,75 @@ function orderNetProfit(order: Order): number {
   return netProfit(order.price, parseOrderExpenses(order.expenses));
 }
 
-function orderNeedsMarginReview(order: Order): boolean {
-  const price = order.price ?? 0;
-  if (price <= 0) return false;
-  const profit = orderNetProfit(order);
-  return (profit / price) * 100 < 40;
+const profitLevelStyles: Record<
+  OrderProfitLevel,
+  { text: string; bg: string; border: string }
+> = {
+  healthy: {
+    text: "text-green-700 dark:text-green-400",
+    bg: "bg-green-50 dark:bg-green-950/40",
+    border: "border-green-200 dark:border-green-800",
+  },
+  low: {
+    text: "text-amber-800 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
+    border: "border-amber-200 dark:border-amber-800",
+  },
+  loss: {
+    text: "text-red-700 dark:text-red-400",
+    bg: "bg-red-50 dark:bg-red-950/40",
+    border: "border-red-200 dark:border-red-800",
+  },
+};
+
+function GalleryProfitBadge({ order }: { order: Order }) {
+  const amount = orderNetProfit(order);
+  const level = classifyOrderProfit(order.price ?? 0, amount);
+  const styles = profitLevelStyles[level];
+  const tooltipText =
+    level === "low"
+      ? lowMarginReviewMessage(amount)
+      : level === "loss"
+        ? lossReviewMessage(amount)
+        : null;
+
+  const badge = (
+    <div
+      className={cn(
+        "rounded-md border px-2 py-1 text-right",
+        styles.bg,
+        styles.border,
+      )}
+    >
+      <p className="text-[10px] font-medium uppercase tracking-wide opacity-80">
+        Ganancia
+      </p>
+      <p className={cn("text-sm font-bold tabular-nums", styles.text)}>
+        S/. {formatMoney(amount)}
+      </p>
+    </div>
+  );
+
+  if (!tooltipText) {
+    return badge;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="cursor-help text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+          aria-label={tooltipText}
+        >
+          {badge}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px] text-left leading-snug">
+        {tooltipText}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function formatPrice(value: number) {
@@ -77,8 +150,6 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
   const coverImage = resultImages[0] ?? null;
   const hasImage = Boolean(coverImage) && !imageFailed;
   const editHref = `/editar-pedido/${order.id}`;
-  const showLowMarginAlert = orderNeedsMarginReview(order);
-  const netProfitAmount = orderNetProfit(order);
 
   return (
     <Card className="flex aspect-square w-full flex-col overflow-hidden">
@@ -118,24 +189,16 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
           </div>
         )}
       </div>
-      <CardContent className="shrink-0 space-y-2 px-4 py-3">
-        <p className="text-lg font-extrabold text-primary sm:text-xl">
-          {formatPrice(order.price)}
-        </p>
-        <p className="text-xs text-muted-foreground">Pedido #{order.id}</p>
-        {showLowMarginAlert && (
-          <Alert
-            variant="destructive"
-            className="border-amber-500/40 bg-amber-50 py-2 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
-          >
-            <TriangleAlert className="size-4 text-amber-600 dark:text-amber-400" />
-            <AlertDescription className="text-xs leading-snug">
-              Esta cotización requiere ser evaluada nuevamente, ya que este
-              pedido involucró una ganancia menor al 40%: S/.{" "}
-              {formatMoney(netProfitAmount)}
-            </AlertDescription>
-          </Alert>
-        )}
+      <CardContent className="shrink-0 space-y-1.5 px-4 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-lg font-extrabold text-primary sm:text-xl">
+              {formatPrice(order.price)}
+            </p>
+            <p className="text-xs text-muted-foreground">Pedido #{order.id}</p>
+          </div>
+          <GalleryProfitBadge order={order} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -206,6 +269,7 @@ export default function GaleriaPage() {
   const currentPage = Math.min(page, pageCount);
 
   return (
+    <TooltipProvider>
     <div className="mx-auto max-w-6xl p-6">
       <Link
         href="/"
@@ -338,5 +402,6 @@ export default function GaleriaPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

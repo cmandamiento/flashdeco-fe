@@ -72,23 +72,25 @@ export function formatMoney(value: number): string {
   return value.toLocaleString("es-PE", { minimumFractionDigits: 2 });
 }
 
-/** Margen de ganancia neta sobre el precio de cotización (0–100). */
-export function netProfitMarginPercent(
+export type OrderProfitLevel = "healthy" | "low" | "loss";
+
+/** Ganancia neta vs cotización: ≥40% verde, [0,40%) ámbar, &lt;0 rojo. */
+export function classifyOrderProfit(
   orderPrice: number,
-  expenses: OrderExpense[],
-): number | null {
-  if (orderPrice <= 0) return null;
-  return (netProfit(orderPrice, expenses) / orderPrice) * 100;
+  profitAmount: number,
+  thresholdPercent = 40,
+): OrderProfitLevel {
+  if (profitAmount < 0) return "loss";
+  if (orderPrice <= 0) return "healthy";
+  const margin = (profitAmount / orderPrice) * 100;
+  return margin < thresholdPercent ? "low" : "healthy";
 }
 
-const DEFAULT_LOW_MARGIN_THRESHOLD_PERCENT = 40;
+export function lowMarginReviewMessage(profitAmount: number): string {
+  return `Esta cotización requiere ser evaluada nuevamente, ya que este pedido involucró una ganancia menor al 40%: S/. ${formatMoney(profitAmount)}`;
+}
 
-export function isBelowProfitMarginThreshold(
-  orderPrice: number,
-  expenses: OrderExpense[],
-  thresholdPercent = DEFAULT_LOW_MARGIN_THRESHOLD_PERCENT,
-): boolean {
-  const margin = netProfitMarginPercent(orderPrice, expenses);
-  if (margin === null) return false;
-  return margin < thresholdPercent;
+export function lossReviewMessage(profitAmount: number): string {
+  const loss = Math.abs(profitAmount);
+  return `Este pedido registró una pérdida de S/. ${formatMoney(loss)}. Conviene revisar la cotización y los gastos.`;
 }
