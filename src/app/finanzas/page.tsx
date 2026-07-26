@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Eye } from "lucide-react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
+import { formatMoney, parseOrderExpenses, sumExpenses } from "@/lib/orderExpenses";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +38,9 @@ type Order = {
   status: string;
   reference: string | null;
   result: string | null;
+  expenses?: { concept: string; price: number }[];
+  expenses_total?: number;
+  net_profit?: number;
   category: { id: number; name: string; description: string | null } | null;
 };
 
@@ -54,6 +58,16 @@ const MONTHES = [
   { value: 11, label: "Noviembre" },
   { value: 12, label: "Diciembre" },
 ];
+
+function orderExpensesTotal(row: Order): number {
+  if (typeof row.expenses_total === "number") return row.expenses_total;
+  return sumExpenses(parseOrderExpenses(row.expenses));
+}
+
+function orderNetProfit(row: Order): number {
+  if (typeof row.net_profit === "number") return row.net_profit;
+  return (row.price ?? 0) - orderExpensesTotal(row);
+}
 
 export default function FinanzasPage() {
   const now = new Date();
@@ -103,6 +117,11 @@ export default function FinanzasPage() {
   };
 
   const totalPrice = orders.reduce((sum, o) => sum + (o.price || 0), 0);
+  const totalExpenses = orders.reduce(
+    (sum, o) => sum + orderExpensesTotal(o),
+    0,
+  );
+  const totalNetProfit = orders.reduce((sum, o) => sum + orderNetProfit(o), 0);
   const years = Array.from({ length: 10 }, (_, i) => now.getFullYear() - i);
 
   return (
@@ -159,66 +178,85 @@ export default function FinanzasPage() {
           {loading ? (
             <p className="py-6 text-muted-foreground">Cargando...</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12 text-center">#</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead className="text-right">Importe (S/)</TableHead>
-                  <TableHead className="text-right">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.length === 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                      No hay pedidos completados en {MONTHES[month - 1]?.label}{" "}
-                      {year}
-                    </TableCell>
+                    <TableHead className="w-12 text-center">#</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Categoría</TableHead>
+                    <TableHead className="text-right">Importe (S/)</TableHead>
+                    <TableHead className="text-right">Gastos (S/)</TableHead>
+                    <TableHead className="text-right">Ganancia neta (S/)</TableHead>
+                    <TableHead className="text-right">Acción</TableHead>
                   </TableRow>
-                ) : (
-                  <>
-                    {orders.map((row, index) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="text-center text-muted-foreground">
-                          {index + 1}
-                        </TableCell>
-                        <TableCell>{row.clientName}</TableCell>
-                        <TableCell>{formatDate(row.date)}</TableCell>
-                        <TableCell>{row.category?.name ?? "—"}</TableCell>
-                        <TableCell className="text-right">
-                          {(row.price ?? 0).toLocaleString("es-PE", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/pedidos/${row.id}`}>
-                              <Eye className="size-4" />
-                              Ver
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/50 font-bold">
-                      <TableCell />
-                      <TableCell colSpan={3} className="text-right">
-                        Total ({orders.length}):
+                </TableHeader>
+                <TableBody>
+                  {orders.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={8}
+                        className="py-8 text-center text-muted-foreground"
+                      >
+                        No hay pedidos completados en {MONTHES[month - 1]?.label}{" "}
+                        {year}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {totalPrice.toLocaleString("es-PE", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                      <TableCell />
                     </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    <>
+                      {orders.map((row, index) => {
+                        const expensesTotal = orderExpensesTotal(row);
+                        const net = orderNetProfit(row);
+                        return (
+                          <TableRow key={row.id}>
+                            <TableCell className="text-center text-muted-foreground">
+                              {index + 1}
+                            </TableCell>
+                            <TableCell>{row.clientName}</TableCell>
+                            <TableCell>{formatDate(row.date)}</TableCell>
+                            <TableCell>{row.category?.name ?? "—"}</TableCell>
+                            <TableCell className="text-right">
+                              {formatMoney(row.price ?? 0)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatMoney(expensesTotal)}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatMoney(net)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="outline" size="sm" asChild>
+                                <Link href={`/pedidos/${row.id}`}>
+                                  <Eye className="size-4" />
+                                  Ver
+                                </Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      <TableRow className="bg-muted/50 font-bold">
+                        <TableCell />
+                        <TableCell colSpan={3} className="text-right">
+                          Total ({orders.length}):
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatMoney(totalPrice)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatMoney(totalExpenses)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatMoney(totalNetProfit)}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

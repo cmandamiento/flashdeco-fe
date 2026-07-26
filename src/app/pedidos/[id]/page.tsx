@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import { formatMoney, parseOrderExpenses, sumExpenses } from "@/lib/orderExpenses";
 import { cn } from "@/lib/utils";
 
 type Order = {
@@ -40,6 +41,9 @@ type Order = {
   reference: string | string[] | null;
   result: string | string[] | null;
   observations: string | null;
+  expenses?: { concept: string; price: number }[];
+  expenses_total?: number;
+  net_profit?: number;
   category: { id: number; name: string; description: string | null } | null;
 };
 
@@ -94,6 +98,15 @@ export default function VerPedidoPage() {
 
   const referenceImages = parseOrderImageList(order.reference);
   const resultImages = parseOrderImageList(order.result);
+  const orderExpenses = parseOrderExpenses(order.expenses);
+  const expensesTotal =
+    typeof order.expenses_total === "number"
+      ? order.expenses_total
+      : sumExpenses(orderExpenses);
+  const netProfit =
+    typeof order.net_profit === "number"
+      ? order.net_profit
+      : order.price - expensesTotal;
 
   const formatDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-").map(Number);
@@ -592,6 +605,40 @@ export default function VerPedidoPage() {
                     <span className="text-2xl font-bold text-primary">
                       S/. {order.balance.toFixed(2)}
                     </span>
+                  </div>
+                </>
+              )}
+
+              {orderExpenses.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <span className="font-medium">Gastos</span>
+                    <ul className="space-y-1 text-sm">
+                      {orderExpenses.map((item, index) => (
+                        <li
+                          key={`${item.concept}-${index}`}
+                          className="flex justify-between gap-4"
+                        >
+                          <span className="text-muted-foreground">
+                            {item.concept}
+                          </span>
+                          <span>S/. {formatMoney(item.price)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex justify-between border-t pt-2 text-sm">
+                      <span className="text-muted-foreground">Total gastos</span>
+                      <span className="font-medium">
+                        S/. {formatMoney(expensesTotal)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Ganancia neta</span>
+                      <span className="font-bold text-primary">
+                        S/. {formatMoney(netProfit)}
+                      </span>
+                    </div>
                   </div>
                 </>
               )}

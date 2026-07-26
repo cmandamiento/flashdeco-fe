@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import { parseOrderExpenses } from "@/lib/orderExpenses";
 
 type Order = {
   id: number;
@@ -24,6 +25,7 @@ type Order = {
   reference: string | string[] | null;
   result: string | string[] | null;
   observations: string | null;
+  expenses?: { concept: string; price: number }[];
   category: { id: number; name: string } | null;
   category_id: number | null;
   client_dni?: string | null;
@@ -45,6 +47,7 @@ function orderToInitialValues(order: Order): OrderFormInitialValues {
     observations: order.observations ?? "",
     registerPastEvent: false,
     status: order.status,
+    expenses: parseOrderExpenses(order.expenses),
   };
 }
 

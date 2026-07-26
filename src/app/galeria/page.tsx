@@ -10,11 +10,18 @@ import {
   ChevronsRight,
   ImageOff,
   Loader2,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import {
+  formatMoney,
+  netProfit,
+  parseOrderExpenses,
+} from "@/lib/orderExpenses";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -32,7 +39,21 @@ type Order = {
   price: number;
   result: string | string[] | null;
   status: string;
+  expenses?: { concept: string; price: number }[];
+  net_profit?: number;
 };
+
+function orderNetProfit(order: Order): number {
+  if (typeof order.net_profit === "number") return order.net_profit;
+  return netProfit(order.price, parseOrderExpenses(order.expenses));
+}
+
+function orderNeedsMarginReview(order: Order): boolean {
+  const price = order.price ?? 0;
+  if (price <= 0) return false;
+  const profit = orderNetProfit(order);
+  return (profit / price) * 100 < 40;
+}
 
 function formatPrice(value: number) {
   return `S/. ${(value ?? 0).toLocaleString("es-PE", {
@@ -56,6 +77,8 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
   const coverImage = resultImages[0] ?? null;
   const hasImage = Boolean(coverImage) && !imageFailed;
   const editHref = `/editar-pedido/${order.id}`;
+  const showLowMarginAlert = orderNeedsMarginReview(order);
+  const netProfitAmount = orderNetProfit(order);
 
   return (
     <Card className="flex aspect-square w-full flex-col overflow-hidden">
@@ -95,11 +118,24 @@ function GalleryCard({ order, onImageClick }: GalleryCardProps) {
           </div>
         )}
       </div>
-      <CardContent className="shrink-0 px-4 py-3">
+      <CardContent className="shrink-0 space-y-2 px-4 py-3">
         <p className="text-lg font-extrabold text-primary sm:text-xl">
           {formatPrice(order.price)}
         </p>
         <p className="text-xs text-muted-foreground">Pedido #{order.id}</p>
+        {showLowMarginAlert && (
+          <Alert
+            variant="destructive"
+            className="border-amber-500/40 bg-amber-50 py-2 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            <TriangleAlert className="size-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-xs leading-snug">
+              Esta cotización requiere ser evaluada nuevamente, ya que este
+              pedido involucró una ganancia menor al 40%: S/.{" "}
+              {formatMoney(netProfitAmount)}
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

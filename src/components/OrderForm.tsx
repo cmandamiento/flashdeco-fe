@@ -45,6 +45,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
+import {
+  createExpenseRow,
+  expensesToFormRows,
+  formatMoney,
+  netProfit,
+  normalizeExpenseRows,
+  parseOrderExpenses,
+  sumExpenses,
+  type OrderExpenseRow,
+} from "@/lib/orderExpenses";
 import { cn } from "@/lib/utils";
 
 export type Category = {
@@ -88,6 +98,7 @@ export type OrderFormInitialValues = {
   observations: string;
   registerPastEvent: boolean;
   status?: string;
+  expenses?: { concept: string; price: number }[];
 };
 
 type OrderFormProps = {
@@ -266,6 +277,9 @@ export function OrderForm({
   const [description, setDescription] = useState(merged.description);
   const [quote, setQuote] = useState(merged.quote);
   const [deposit, setDeposit] = useState(merged.deposit);
+  const [expenseRows, setExpenseRows] = useState<OrderExpenseRow[]>(() =>
+    expensesToFormRows(parseOrderExpenses(merged.expenses)),
+  );
   const [existingReferenceUrls, setExistingReferenceUrls] = useState<string[]>(
     merged.referenceUrls,
   );
@@ -413,6 +427,39 @@ export function OrderForm({
     return Math.max(0, quoteVal - depositVal);
   }, [quote, deposit]);
 
+  const expensesPayload = useMemo(
+    () => normalizeExpenseRows(expenseRows),
+    [expenseRows],
+  );
+  const expensesTotal = useMemo(
+    () => sumExpenses(expensesPayload),
+    [expensesPayload],
+  );
+  const estimatedNetProfit = useMemo(
+    () => netProfit(parseFloat(quote) || 0, expensesPayload),
+    [quote, expensesPayload],
+  );
+
+  const updateExpenseRow = (
+    id: string,
+    patch: Partial<Pick<OrderExpenseRow, "concept" | "price">>,
+  ) => {
+    setExpenseRows((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    );
+  };
+
+  const removeExpenseRow = (id: string) => {
+    setExpenseRows((rows) => {
+      const next = rows.filter((row) => row.id !== id);
+      return next.length > 0 ? next : [createExpenseRow()];
+    });
+  };
+
+  const addExpenseRow = () => {
+    setExpenseRows((rows) => [...rows, createExpenseRow()]);
+  };
+
   const resetQuoteHelpModal = useCallback(() => {
     setQhScreens("");
     setQhFoamNuevo("no");
@@ -501,6 +548,7 @@ export function OrderForm({
           observations: completeObservations || null,
           client_rating: clientRating,
           category_id: categoryId ? Number(categoryId) : null,
+          expenses: expensesPayload,
         }),
       });
       if (!response.ok) {
@@ -598,6 +646,7 @@ export function OrderForm({
             result: resultUrls,
             observations: observations.trim() || null,
             category_id: categoryId ? Number(categoryId) : null,
+            expenses: expensesPayload,
           }),
         });
         if (!response.ok) {
@@ -628,6 +677,7 @@ export function OrderForm({
             status: "PENDING",
             reference: referenceUrls,
             category_id: categoryId ? Number(categoryId) : null,
+            expenses: expensesPayload,
           }),
         });
         if (!response.ok) {
@@ -1105,6 +1155,76 @@ export function OrderForm({
                   value={balance.toFixed(2)}
                   readOnly
                 />
+              </div>
+            </div>
+
+            <div className="col-span-full space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label>Gastos</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addExpenseRow}
+                >
+                  <Plus className="size-4" />
+                  Agregar gasto
+                </Button>
+              </div>
+              <div className="space-y-2 rounded-md border p-3">
+                <div className="hidden gap-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_140px_40px]">
+                  <span>Concepto</span>
+                  <span className="text-right">Precio (S/.)</span>
+                  <span />
+                </div>
+                {expenseRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_40px] sm:items-center"
+                  >
+                    <Input
+                      placeholder="Concepto"
+                      value={row.concept}
+                      onChange={(e) =>
+                        updateExpenseRow(row.id, { concept: e.target.value })
+                      }
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="0.00"
+                      className="sm:text-right"
+                      value={row.price}
+                      onChange={(e) =>
+                        updateExpenseRow(row.id, { price: e.target.value })
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 shrink-0"
+                      onClick={() => removeExpenseRow(row.id)}
+                      aria-label="Quitar gasto"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Separator />
+                <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-end sm:gap-8">
+                  <p>
+                    <span className="text-muted-foreground">Total gastos: </span>
+                    <span className="font-medium">S/. {formatMoney(expensesTotal)}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Ganancia neta: </span>
+                    <span className="font-semibold">
+                      S/. {formatMoney(estimatedNetProfit)}
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
 
