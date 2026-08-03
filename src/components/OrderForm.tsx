@@ -42,6 +42,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { SimpleRichTextEditor } from "@/components/ui/simple-rich-text-editor";
+import { RichTextContent } from "@/components/RichTextContent";
+import { isRichTextEmpty } from "@/lib/richText";
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
@@ -552,7 +555,7 @@ export function OrderForm({
           phone: phone || null,
           date,
           address,
-          description: description || null,
+          description: isRichTextEmpty(description) ? null : description.trim(),
           price: parseFloat(quote) || 0,
           deposit: parseFloat(deposit) || 0,
           balance,
@@ -650,7 +653,7 @@ export function OrderForm({
             phone: phone || null,
             date,
             address,
-            description: description || null,
+            description: isRichTextEmpty(description) ? null : description.trim(),
             price: parseFloat(quote) || 0,
             deposit: parseFloat(deposit) || 0,
             balance,
@@ -683,7 +686,7 @@ export function OrderForm({
             phone: phone || null,
             date,
             address,
-            description: description || null,
+            description: isRichTextEmpty(description) ? null : description.trim(),
             price: parseFloat(quote) || 0,
             deposit: parseFloat(deposit) || 0,
             balance,
@@ -838,11 +841,10 @@ export function OrderForm({
 
             <div className="col-span-full space-y-2">
               <Label htmlFor="description">Descripción</Label>
-              <Textarea
+              <SimpleRichTextEditor
                 id="description"
-                rows={4}
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder="Detalle del pedido..."
               />
             </div>
@@ -1451,9 +1453,12 @@ export function OrderForm({
                       <strong>Dirección:</strong> {order.address}
                     </p>
                     {order.description && (
-                      <p>
-                        <strong>Descripción:</strong> {order.description}
-                      </p>
+                      <div>
+                        <p className="mb-1">
+                          <strong>Descripción:</strong>
+                        </p>
+                        <RichTextContent html={order.description} />
+                      </div>
                     )}
                     <p>
                       <strong>Cotización:</strong> S/.{" "}

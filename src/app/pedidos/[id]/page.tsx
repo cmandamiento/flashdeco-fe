@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   MapPin,
   Phone,
+  Loader2,
   Printer,
   Tags,
   TriangleAlert,
@@ -24,7 +25,14 @@ import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { parseOrderImageList } from "@/lib/orderImages";
 import { formatMoney, parseOrderExpenses, sumExpenses } from "@/lib/orderExpenses";
+import { RichTextContent } from "@/components/RichTextContent";
 import { cn } from "@/lib/utils";
+import {
+  buildPdfLinesFromHtml,
+  drawPdfRichTextLine,
+  hasRenderableDescription,
+  measureRichTextBlockHeight,
+} from "@/lib/pdfRichText";
 
 type Order = {
   id: number;
@@ -53,6 +61,7 @@ export default function VerPedidoPage() {
   const id = params?.id;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [printingQuote, setPrintingQuote] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -198,7 +207,8 @@ export default function VerPedidoPage() {
     });
 
   const handlePrintQuote = async () => {
-    if (!order) return;
+    if (!order || printingQuote) return;
+    setPrintingQuote(true);
     try {
       const pdf = new jsPDF({ unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -211,6 +221,8 @@ export default function VerPedidoPage() {
       const logoUrl = "/logo-flash.png";
 
       const rowH = 10;
+      const titleFontSize = 12;
+      const cellFontSize = 12;
       const valueXPadding = 1.5;
       const rightColW = 55;
       const leftColW = tableWidth - rightColW;
@@ -232,8 +244,10 @@ export default function VerPedidoPage() {
         text: string,
         bold = false,
         align: "left" | "center" | "right" = "left",
+        fontSize = cellFontSize,
       ) => {
         pdf.rect(x, top, w, h);
+        pdf.setFontSize(fontSize);
         pdf.setFont("helvetica", bold ? "bold" : "normal");
         const textX =
           align === "left"
@@ -241,17 +255,26 @@ export default function VerPedidoPage() {
             : align === "center"
               ? x + w / 2
               : x + w - valueXPadding;
-        pdf.text(text || "", textX, top + h / 2 + 1.5, {
+        pdf.text(text || "", textX, top + h / 2 + fontSize * 0.12, {
           align:
             align === "left" ? "left" : align === "center" ? "center" : "right",
         });
       };
 
-      const logoWidth = 38;
-      const logoHeight = 16;
-      const headerRowH = Math.max(rowH + 2, logoHeight + 6);
+      const logoWidth = 34;
+      const logoHeight = 14;
+      const headerRowH = Math.max(rowH + 2, logoHeight + 4);
       ensureSpace(headerRowH);
-      drawCell(leftX, y, leftColW, headerRowH, "Cotización", true, "left");
+      drawCell(
+        leftX,
+        y,
+        leftColW,
+        headerRowH,
+        "Cotización",
+        true,
+        "left",
+        titleFontSize,
+      );
       drawCell(leftX + leftColW, y, rightColW, headerRowH, "", false);
       try {
         const logoDataUrl = await getImageAsDataUrl(logoUrl, "image/png");
@@ -316,6 +339,43 @@ export default function VerPedidoPage() {
       drawCell(leftX, y, labelCol, rowH, "Dirección", true);
       drawCell(leftX + labelCol, y, tableWidth - labelCol, rowH, order.address);
       y += rowH;
+
+      if (hasRenderableDescription(order.description)) {
+        const descFontSize = cellFontSize;
+        const descLineHeight = 5.5;
+        const descPadding = 2;
+        const descContentWidth = tableWidth - descPadding * 2;
+        pdf.setFontSize(descFontSize);
+        const descLines = buildPdfLinesFromHtml(
+          order.description!,
+          pdf,
+          descContentWidth,
+          descFontSize,
+        );
+        const descContentH = measureRichTextBlockHeight(
+          descLines.length,
+          descLineHeight,
+          descPadding,
+        );
+
+        ensureSpace(rowH + descContentH);
+        drawCell(leftX, y, tableWidth, rowH, "Descripción", true);
+        y += rowH;
+        pdf.rect(leftX, y, tableWidth, descContentH);
+        let descY = y + descPadding + descLineHeight * 0.8;
+        for (const line of descLines) {
+          drawPdfRichTextLine(
+            pdf,
+            leftX + descPadding,
+            descY,
+            line,
+            descFontSize,
+          );
+          descY += descLineHeight;
+        }
+        y += descContentH;
+        pdf.setFontSize(cellFontSize);
+      }
 
       const imgAreaH = referenceImages.length > 1 ? 90 : 120;
       ensureSpace(rowH);
@@ -397,9 +457,9 @@ export default function VerPedidoPage() {
       const disclaimer =
         "El adelanto confirma tu reserva y permite iniciar la preparación de tu decoración. Por ello, no es reembolsable si la cancelación se realiza dentro de las 96 horas o 4 días previos al evento.";
       pdf.setFont("helvetica", "italic");
-      pdf.setFontSize(10);
+      pdf.setFontSize(cellFontSize);
       const disclaimerLines = pdf.splitTextToSize(disclaimer, tableWidth);
-      const disclaimerLineHeight = 5;
+      const disclaimerLineHeight = 6;
       const disclaimerHeight = disclaimerLines.length * disclaimerLineHeight;
       ensureSpace(disclaimerHeight);
       pdf.text(disclaimerLines, leftX, y);
@@ -407,6 +467,8 @@ export default function VerPedidoPage() {
       pdf.save(`cotizacion-pedido-${order.id}.pdf`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo generar el PDF.");
+    } finally {
+      setPrintingQuote(false);
     }
   };
 
@@ -426,9 +488,18 @@ export default function VerPedidoPage() {
           <ArrowLeft className="size-4" />
           Volver a pedidos
         </Button>
-        <Button onClick={handlePrintQuote}>
-          <Printer className="size-4" />
-          Imprimir cotización
+        <Button onClick={handlePrintQuote} disabled={printingQuote}>
+          {printingQuote ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Generando...
+            </>
+          ) : (
+            <>
+              <Printer className="size-4" />
+              Imprimir cotización
+            </>
+          )}
         </Button>
       </div>
 
@@ -519,7 +590,7 @@ export default function VerPedidoPage() {
             {order.description && (
               <div className="col-span-full flex flex-col gap-2">
                 <span className="text-sm text-muted-foreground">Descripción</span>
-                <p className="whitespace-pre-wrap">{order.description}</p>
+                <RichTextContent html={order.description} />
               </div>
             )}
           </div>
