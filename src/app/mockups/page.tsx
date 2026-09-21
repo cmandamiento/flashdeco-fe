@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowDown, ArrowUp, Eye, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2, X } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, Copy, Eye, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const KEY = "flashdeco_mockup_v1";
+const PALETTE_KEY = "flashdeco_mockup_palette_v1";
 const catalog = [
   { name: "Globo", icon: "🎈" }, { name: "Globos", icon: "🎉" },
   { name: "Flor", icon: "🌸" }, { name: "Planta", icon: "🪴" },
@@ -28,7 +29,7 @@ const imageCatalog = [
 ] as const;
 type Item = { id: string; icon?: string; image?: string; name: string; x: number; y: number; size: number; rotation: number; color?: string };
 type Drag = { id: string; pointerId: number; dx: number; dy: number; recorded: boolean };
-type Snapshot = { items: Item[]; selectedId: string | null };
+type Snapshot = { items: Item[]; selectedId: string | null; palette: string[] };
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 function validItem(value: unknown): value is Item {
@@ -60,6 +61,7 @@ function ItemArtwork({ item }: { item: Item }) {
 
 export default function MockupsPage() {
   const [items, setItems] = useState<Item[]>([]);
+  const [palette, setPalette] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [history, setHistory] = useState<Snapshot[]>([]);
@@ -72,14 +74,20 @@ export default function MockupsPage() {
 
   useEffect(() => {
     let savedItems: Item[] = [];
+    let savedPalette: string[] = [];
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) || "[]");
-      if (Array.isArray(saved)) savedItems = saved.filter(validItem).map((v) => ({ ...v, x: clamp(v.x, 0, 100), y: clamp(v.y, 0, 100), size: clamp(v.size, 36, 360), rotation: typeof v.rotation === "number" ? ((v.rotation % 360) + 360) % 360 : 0, color: typeof v.color === "string" && /^#[0-9a-f]{6}$/i.test(v.color) ? v.color : "#ffffff" }));
+      if (Array.isArray(saved)) savedItems = saved.filter(validItem).map((v) => ({ ...v, x: clamp(v.x, 0, 100), y: clamp(v.y, 0, 100), size: clamp(v.size, 36, 480), rotation: typeof v.rotation === "number" ? ((v.rotation % 360) + 360) % 360 : 0, color: typeof v.color === "string" && /^#[0-9a-f]{6}$/i.test(v.color) ? v.color : "#ffffff" }));
     } catch { /* Ignore damaged browser storage. */ }
-    const timer = window.setTimeout(() => { setItems(savedItems); setReady(true); }, 0);
+    try {
+      const saved = JSON.parse(localStorage.getItem(PALETTE_KEY) || "[]");
+      if (Array.isArray(saved)) savedPalette = [...new Set(saved.filter((color): color is string => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color)).map((color) => color.toLowerCase()))].slice(0, 6);
+    } catch { /* Ignore damaged browser storage. */ }
+    const timer = window.setTimeout(() => { setItems(savedItems); setPalette(savedPalette); setReady(true); }, 0);
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => { if (ready) localStorage.setItem(KEY, JSON.stringify(items)); }, [items, ready]);
+  useEffect(() => { if (ready) localStorage.setItem(PALETTE_KEY, JSON.stringify(palette)); }, [palette, ready]);
   useEffect(() => {
     if (!previewOpen || !previewBoard.current) return;
     const node = previewBoard.current;
@@ -89,12 +97,13 @@ export default function MockupsPage() {
   }, [previewOpen]);
 
   const selected = items.find((v) => v.id === selectedId);
-  const record = () => setHistory((current) => [...current.slice(-49), { items, selectedId }]);
+  const record = () => setHistory((current) => [...current.slice(-49), { items, selectedId, palette }]);
   const undo = () => {
     const previous = history[history.length - 1];
     if (!previous) return;
     setItems(previous.items);
     setSelectedId(previous.selectedId);
+    setPalette(previous.palette);
     setHistory((current) => current.slice(0, -1));
     colorEdit.current = false;
   };
@@ -105,15 +114,43 @@ export default function MockupsPage() {
     setSelectedId(item.id);
   };
   const addImage = (entry: (typeof imageCatalog)[number]) => {
-    const item: Item = { ...entry, id: crypto.randomUUID(), x: 50, y: 50, size: entry.image === "shimmer" ? 120 : 150, rotation: 0, color: "#ffffff" };
+    const item: Item = { ...entry, id: crypto.randomUUID(), x: 50, y: 50, size: entry.image === "shimmer" ? 180 : entry.image === "arco" ? 375 : 150, rotation: 0, color: "#ffffff" };
     record();
     setItems((current) => [...current, item]);
     setSelectedId(item.id);
   };
-  const resize = (amount: number) => { record(); setItems((current) => current.map((v) => v.id === selectedId ? { ...v, size: clamp(v.size + amount, 36, 360) } : v)); };
+  const duplicate = () => {
+    if (!selected) return;
+    const copy: Item = {
+      ...selected,
+      id: crypto.randomUUID(),
+      x: selected.x <= 94 ? selected.x + 6 : selected.x - 6,
+      y: selected.y <= 94 ? selected.y + 6 : selected.y - 6,
+    };
+    record();
+    setItems((current) => [...current, copy]);
+    setSelectedId(copy.id);
+  };
+  const resize = (amount: number) => { record(); setItems((current) => current.map((v) => v.id === selectedId ? { ...v, size: clamp(v.size + amount, 36, 480) } : v)); };
   const recolor = (color: string) => {
     if (!colorEdit.current) { record(); colorEdit.current = true; }
     setItems((current) => current.map((v) => v.id === selectedId ? { ...v, color } : v));
+  };
+  const choosePaletteColor = (color: string) => {
+    if (!selected || selected.color?.toLowerCase() === color) return;
+    record();
+    setItems((current) => current.map((item) => item.id === selectedId ? { ...item, color } : item));
+  };
+  const savePaletteColor = () => {
+    if (!selected || palette.length >= 6) return;
+    const color = (selected.color || "#ffffff").toLowerCase();
+    if (palette.includes(color)) return;
+    record();
+    setPalette((current) => [...current, color]);
+  };
+  const removePaletteColor = (color: string) => {
+    record();
+    setPalette((current) => current.filter((entry) => entry !== color));
   };
   const rotate = (amount: number) => { record(); setItems((current) => current.map((v) => v.id === selectedId ? { ...v, rotation: (v.rotation + amount + 360) % 360 } : v)); };
   const layer = (step: number) => { record(); setItems((current) => {
@@ -148,14 +185,23 @@ export default function MockupsPage() {
       <h1 className="text-3xl font-bold">Creador de mockups</h1>
       <p className="mt-1 text-sm text-muted-foreground">Toca un elemento del menú inferior para agregarlo. Arrástralo sobre la página para acomodarlo.</p>
     </div>
-    <div className="sticky top-16 z-20 flex w-full flex-nowrap items-center gap-2 overflow-x-auto rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur-sm" aria-label="Controles del mockup">
+    <div className="sticky top-2 z-20 flex w-full flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur-sm" aria-label="Controles del mockup">
       <Button className="shrink-0" variant="outline" size="sm" onClick={undo} disabled={history.length === 0}><Undo2 className="size-4" />Deshacer</Button>
       <Button className="shrink-0" variant="outline" size="sm" onClick={() => setPreviewOpen(true)}><Eye className="size-4" />Preview</Button>
       {selected && <>
       <span className="mr-2 shrink-0 whitespace-nowrap text-sm font-medium">{selected.name}</span>
+      <Button className="shrink-0" variant="outline" size="sm" onClick={duplicate}><Copy className="size-4" />Duplicar</Button>
       <Button className="shrink-0" variant="outline" size="icon-sm" onClick={() => resize(-12)} disabled={selected.size <= 36} aria-label="Reducir tamaño" title="Reducir tamaño"><Minus className="size-4" /></Button>
-      <Button className="shrink-0" variant="outline" size="icon-sm" onClick={() => resize(12)} disabled={selected.size >= 360} aria-label="Agrandar" title="Agrandar"><Plus className="size-4" /></Button>
-      {imageCatalog.some((entry) => entry.image === selected.image && entry.tintable) && <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm">Color <input type="color" value={selected.color || "#ffffff"} onChange={(e) => recolor(e.target.value)} onBlur={() => { colorEdit.current = false; }} aria-label={`Color de ${selected.name}`} className="size-9 cursor-pointer rounded border bg-transparent p-0.5" /></label>}
+      <Button className="shrink-0" variant="outline" size="icon-sm" onClick={() => resize(12)} disabled={selected.size >= 480} aria-label="Agrandar" title="Agrandar"><Plus className="size-4" /></Button>
+      {imageCatalog.some((entry) => entry.image === selected.image && entry.tintable) && <>
+        <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm">Color libre <input type="color" value={selected.color || "#ffffff"} onChange={(e) => recolor(e.target.value)} onBlur={() => { colorEdit.current = false; }} aria-label={`Color de ${selected.name}`} className="size-9 cursor-pointer rounded border bg-transparent p-0.5" /></label>
+        <span className="shrink-0 text-sm text-muted-foreground">Paleta {palette.length}/6</span>
+        {palette.map((color) => <span key={color} className="relative shrink-0">
+          <button type="button" onClick={() => choosePaletteColor(color)} aria-label={`Aplicar color ${color}`} title={`Aplicar ${color}`} className={`size-8 rounded-md border-2 ${selected.color?.toLowerCase() === color ? "border-primary ring-2 ring-primary/30" : "border-border"}`} style={{ backgroundColor: color }} />
+          <button type="button" onClick={() => removePaletteColor(color)} aria-label={`Quitar ${color} de la paleta`} title="Quitar de la paleta" className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background"><X className="size-3" /></button>
+        </span>)}
+        <Button className="shrink-0" variant="outline" size="icon-sm" onClick={savePaletteColor} disabled={palette.length >= 6 || palette.includes((selected.color || "#ffffff").toLowerCase())} aria-label="Guardar color actual en la paleta" title="Guardar color actual en la paleta"><Plus className="size-4" /></Button>
+      </>}
       <Button className="shrink-0" variant="outline" size="icon-sm" onClick={() => rotate(-15)} aria-label="Girar 15 grados a la izquierda" title="Girar a la izquierda"><RotateCcw className="size-4" /></Button>
       <span className="min-w-10 shrink-0 text-center text-sm tabular-nums" aria-label={`Rotación: ${selected.rotation} grados`}>{selected.rotation}°</span>
       <Button className="shrink-0" variant="outline" size="icon-sm" onClick={() => rotate(15)} aria-label="Girar 15 grados a la derecha" title="Girar a la derecha"><RotateCw className="size-4" /></Button>
