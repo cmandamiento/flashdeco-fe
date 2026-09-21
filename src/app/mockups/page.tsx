@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowDown, ArrowUp, Copy, Eye, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2, X } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, BookmarkPlus, Copy, Eye, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
@@ -185,7 +185,29 @@ export default function MockupsPage() {
       <h1 className="text-3xl font-bold">Creador de mockups</h1>
       <p className="mt-1 text-sm text-muted-foreground">Toca un elemento del menú inferior para agregarlo. Arrástralo sobre la página para acomodarlo.</p>
     </div>
-    <div className="sticky top-2 z-20 flex w-full flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur-sm" aria-label="Controles del mockup">
+    <div className="sticky top-2 z-20 flex w-full flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-2 shadow-lg backdrop-blur-sm md:hidden" aria-label={`Controles de ${selected?.name || "mockup"}`}>
+      <Button variant="outline" size="icon" onClick={undo} disabled={history.length === 0} aria-label="Deshacer" title="Deshacer"><Undo2 className="size-4" /></Button>
+      <Button variant="outline" size="icon" onClick={() => setPreviewOpen(true)} aria-label="Preview" title="Preview"><Eye className="size-4" /></Button>
+      {selected && <>
+        <Button variant="outline" size="icon" onClick={duplicate} aria-label="Duplicar elemento" title="Duplicar"><Copy className="size-4" /></Button>
+        <Button variant="outline" size="icon" onClick={() => resize(-12)} disabled={selected.size <= 36} aria-label="Reducir tamaño" title="Reducir"><Minus className="size-4" /></Button>
+        <Button variant="outline" size="icon" onClick={() => resize(12)} disabled={selected.size >= 480} aria-label="Agrandar" title="Agrandar"><Plus className="size-4" /></Button>
+        {imageCatalog.some((entry) => entry.image === selected.image && entry.tintable) && <>
+          <input type="color" value={selected.color || "#ffffff"} onChange={(e) => recolor(e.target.value)} onBlur={() => { colorEdit.current = false; }} aria-label={`Color libre de ${selected.name}`} title="Color libre" className="size-9 cursor-pointer rounded border bg-transparent p-0.5" />
+          {palette.map((color) => <span key={color} className="relative shrink-0">
+            <button type="button" onClick={() => choosePaletteColor(color)} aria-label={`Aplicar color ${color}`} title={`Aplicar ${color}`} className={`size-9 rounded-md border-2 ${selected.color?.toLowerCase() === color ? "border-primary ring-2 ring-primary/30" : "border-border"}`} style={{ backgroundColor: color }} />
+            <button type="button" onClick={() => removePaletteColor(color)} aria-label={`Quitar ${color} de la paleta`} title="Quitar de la paleta" className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background"><X className="size-3" /></button>
+          </span>)}
+          <Button variant="outline" size="icon" onClick={savePaletteColor} disabled={palette.length >= 6 || palette.includes((selected.color || "#ffffff").toLowerCase())} aria-label="Guardar color actual en la paleta" title="Guardar en paleta"><BookmarkPlus className="size-4" /></Button>
+        </>}
+        <Button variant="outline" size="icon" onClick={() => rotate(-15)} aria-label="Girar 15 grados a la izquierda" title="Girar izquierda"><RotateCcw className="size-4" /></Button>
+        <Button variant="outline" size="icon" onClick={() => rotate(15)} aria-label="Girar 15 grados a la derecha" title="Girar derecha"><RotateCw className="size-4" /></Button>
+        <Button variant="outline" size="icon" onClick={() => layer(-1)} disabled={items[0]?.id === selected.id} aria-label="Enviar atrás" title="Atrás"><ArrowDown className="size-4" /></Button>
+        <Button variant="outline" size="icon" onClick={() => layer(1)} disabled={items[items.length - 1]?.id === selected.id} aria-label="Traer adelante" title="Adelante"><ArrowUp className="size-4" /></Button>
+        <Button variant="destructive" size="icon" onClick={() => { record(); setItems((current) => current.filter((item) => item.id !== selected.id)); setSelectedId(null); }} aria-label="Eliminar elemento" title="Eliminar"><Trash2 className="size-4" /></Button>
+      </>}
+    </div>
+    <div className="sticky top-2 z-20 hidden w-full flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur-sm md:flex" aria-label="Controles del mockup">
       <Button className="shrink-0" variant="outline" size="sm" onClick={undo} disabled={history.length === 0}><Undo2 className="size-4" />Deshacer</Button>
       <Button className="shrink-0" variant="outline" size="sm" onClick={() => setPreviewOpen(true)}><Eye className="size-4" />Preview</Button>
       {selected && <>
@@ -211,7 +233,7 @@ export default function MockupsPage() {
       </>}
     </div>
     <div className="rounded-2xl border bg-muted/50 p-3 sm:p-6">
-      <div ref={board} onPointerDown={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }} className="relative mx-auto aspect-[4/3] w-full max-w-4xl overflow-hidden rounded-sm bg-white shadow-md" aria-label="Página del mockup">
+      <div ref={board} onPointerDown={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }} className="relative mx-auto aspect-[3/4] w-full max-w-4xl overflow-hidden rounded-sm bg-white shadow-md md:aspect-[4/3]" aria-label="Página del mockup">
         {items.length === 0 && <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-gray-400">Tu página está vacía. Elige una decoración del menú de abajo.</p>}
         {items.map((item) => {
           const imageEntry = imageCatalog.find((entry) => entry.image === item.image);
@@ -227,7 +249,7 @@ export default function MockupsPage() {
       <DialogContent showCloseButton={false} className="inset-0 top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none border-0 bg-neutral-900 p-4 sm:max-w-none">
         <DialogTitle className="sr-only">Vista previa del mockup</DialogTitle>
         <Button variant="secondary" size="icon" onClick={() => setPreviewOpen(false)} aria-label="Cerrar vista previa" className="absolute top-4 right-4 z-20 rounded-full"><X className="size-5" /></Button>
-        <div ref={previewBoard} className="relative aspect-[4/3] overflow-hidden bg-white shadow-2xl" style={{ width: "min(calc(100vw - 2rem), calc((100dvh - 2rem) * 4 / 3))" }} aria-label="Diseño completo">
+        <div ref={previewBoard} className="relative aspect-[3/4] w-full max-w-[calc(75dvh-1.5rem)] overflow-hidden bg-white shadow-2xl md:aspect-[4/3] md:max-w-[calc(133.333dvh-2.667rem)]" aria-label="Diseño completo">
           {items.map((item) => {
             const imageEntry = imageCatalog.find((entry) => entry.image === item.image);
             return <div key={item.id} className="absolute flex items-center justify-center" style={{ left: `${item.x}%`, top: `${item.y}%`, width: item.size * previewScale, height: item.size * previewScale * (imageEntry?.ratio || 1), fontSize: item.size * previewScale * .72, lineHeight: 1, transform: `translate(-50%, -50%) rotate(${item.rotation}deg)` }}><ItemArtwork item={item} /></div>;
