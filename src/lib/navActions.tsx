@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   List,
   LogOut,
+  PanelsTopLeft,
   ShoppingCart,
   Users,
 } from "lucide-react";
@@ -16,6 +17,7 @@ export type NavActionIconKey =
   | "clientes"
   | "finanzas"
   | "galeria"
+  | "mockups"
   | "logout";
 
 export type NavAction = {
@@ -27,13 +29,14 @@ export type NavAction = {
 };
 
 const NAV_ICON_IMAGES: Record<NavActionIconKey, string> = {
-  crear: "/icons/crear.png",
-  listar: "/icons/pedidos.png",
-  categorias: "/icons/categorias.png",
-  clientes: "/icons/clientes.png",
-  finanzas: "/icons/finanzas.png",
-  galeria: "/icons/galeria.png",
-  logout: "/icons/salir.png",
+  crear: "/icons/crear.webp",
+  listar: "/icons/pedidos.webp",
+  categorias: "/icons/categorias.webp",
+  clientes: "/icons/clientes.webp",
+  finanzas: "/icons/finanzas.webp",
+  galeria: "/icons/galeria.webp",
+  mockups: "/icons/mockup.webp",
+  logout: "/icons/salir.webp",
 };
 
 export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
@@ -43,6 +46,7 @@ export const NAV_ICONS: Record<NavActionIconKey, React.ReactNode> = {
   clientes: <Users className="size-5" />,
   finanzas: <Landmark className="size-5" />,
   galeria: <Images className="size-5" />,
+  mockups: <PanelsTopLeft className="size-5" />,
   logout: <LogOut className="size-5" />,
 };
 
@@ -50,14 +54,7 @@ export const NAV_ICONS_LARGE: Record<NavActionIconKey, React.ReactNode> =
   Object.fromEntries(
     Object.entries(NAV_ICON_IMAGES).map(([key, src]) => [
       key,
-      <Image
-        key={key}
-        src={src}
-        alt=""
-        width={96}
-        height={96}
-        className="size-24 object-contain"
-      />,
+      <Image key={key} src={src} alt="" width={96} height={96} className="size-24 object-contain" />,
     ]),
   ) as Record<NavActionIconKey, React.ReactNode>;
 
@@ -97,6 +94,12 @@ export const NAV_ACTIONS: NavAction[] = [
     href: "/galeria",
     description: "Imágenes referenciales de las decoraciones",
     iconKey: "galeria",
+  },
+  {
+    title: "Creador de mockups",
+    href: "/mockups",
+    description: "Compón ideas de decoración en una página",
+    iconKey: "mockups",
   },
   {
     title: "Cerrar sesión",
