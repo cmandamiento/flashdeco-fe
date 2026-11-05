@@ -65,6 +65,7 @@ function PhoneCell({ phone }: { phone: string | null }) {
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -169,6 +170,12 @@ export default function ClientesPage() {
     }
   };
 
+  const normalizedSearch = search.trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const filteredClients = clients.filter((client) =>
+    client.dni.includes(normalizedSearch) ||
+    client.full_name.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalizedSearch)
+  );
+
   return (
     <div className="mx-auto max-w-4xl p-6">
       <PageHeader
@@ -183,6 +190,17 @@ export default function ClientesPage() {
         }
       />
 
+      <div className="mb-4 space-y-2">
+        <Label htmlFor="client-search">Buscar clientes</Label>
+        <Input
+          id="client-search"
+          type="search"
+          placeholder="Buscar por DNI o nombre"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+
       <Card>
         <CardContent className="p-0">
           {error && (
@@ -194,26 +212,28 @@ export default function ClientesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>N.º</TableHead>
                   <TableHead>DNI</TableHead>
                   <TableHead>Nombres completos</TableHead>
                   <TableHead>Teléfono</TableHead>
                   <TableHead className="text-center">Nro de pedidos</TableHead>
                   <TableHead className="text-center">Estrellas</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead className="text-right">Acción</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clients.length === 0 ? (
+                {filteredClients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center">
+                    <TableCell colSpan={7} className="py-8 text-center">
                       <span className="text-muted-foreground">
-                        No hay clientes registrados
+                        {clients.length === 0 ? "No hay clientes registrados" : "No se encontraron clientes para esta búsqueda"}
                       </span>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  clients.map((row) => (
+                  filteredClients.map((row, index) => (
                     <TableRow key={row.id}>
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>{row.dni}</TableCell>
                       <TableCell>{row.full_name}</TableCell>
                       <TableCell>
@@ -232,16 +252,6 @@ export default function ClientesPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openModal(row)}
-                            aria-label={`Editar a ${row.full_name}`}
-                          >
-                            <Pencil className="size-4" />
-                            Editar
-                          </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -261,9 +271,12 @@ export default function ClientesPage() {
                                 Ver pedidos
                               </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openModal(row)}>
+                              <Pencil className="size-4" />
+                              Editar
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))
