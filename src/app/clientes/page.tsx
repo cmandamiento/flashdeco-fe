@@ -73,6 +73,8 @@ export default function ClientesPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [rating, setRating] = useState<number | null>(null);
+  const [formError, setFormError] = useState("");
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -97,6 +99,8 @@ export default function ClientesPage() {
   }, [fetchClients]);
 
   const openModal = (client?: Client) => {
+    setFormError("");
+    setRating(client?.rating ?? null);
     if (client) {
       setEditingId(client.id);
       setDni(client.dni);
@@ -124,13 +128,13 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     if (!dni || dni.length !== 8 || !fullName.trim()) {
-      setError("DNI (8 dígitos) y nombres completos son obligatorios.");
+      setFormError("DNI (8 dígitos) y nombres completos son obligatorios.");
       return;
     }
     setSaving(true);
-    setError("");
+    setFormError("");
     try {
-      const body = { dni, full_name: fullName.trim(), phone: phone.trim() || null };
+      const body = { dni, full_name: fullName.trim(), phone: phone.trim() || null, rating };
       if (editingId != null) {
         const res = await fetch(`${API_BASE_URL}/clients/${editingId}`, {
           method: "PUT",
@@ -156,10 +160,10 @@ export default function ClientesPage() {
         }
         toast.success("Cliente guardado correctamente.");
       }
-      closeModal();
+      setModalOpen(false);
       await fetchClients();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al guardar");
+      setFormError(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -195,7 +199,7 @@ export default function ClientesPage() {
                   <TableHead>Teléfono</TableHead>
                   <TableHead className="text-center">Nro de pedidos</TableHead>
                   <TableHead className="text-center">Estrellas</TableHead>
-                  <TableHead className="w-14 text-right" />
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -228,6 +232,16 @@ export default function ClientesPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openModal(row)}
+                            aria-label={`Editar a ${row.full_name}`}
+                          >
+                            <Pencil className="size-4" />
+                            Editar
+                          </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -247,12 +261,9 @@ export default function ClientesPage() {
                                 Ver pedidos
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openModal(row)}>
-                              <Pencil className="size-4" />
-                              Editar
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -276,6 +287,9 @@ export default function ClientesPage() {
               {editingId != null ? "Editar cliente" : "Agregar cliente"}
             </DialogTitle>
           </DialogHeader>
+          {formError && (
+            <p role="alert" className="text-sm text-destructive">{formError}</p>
+          )}
           <div className="flex flex-col gap-4">
             <div className="space-y-2">
               <Label htmlFor="client-dni">DNI (8 dígitos)</Label>
@@ -287,7 +301,7 @@ export default function ClientesPage() {
                 maxLength={8}
                 inputMode="numeric"
                 pattern="[0-9]*"
-                disabled={editingId != null}
+                disabled={saving}
               />
               <p className="text-xs text-muted-foreground">Solo números</p>
             </div>
